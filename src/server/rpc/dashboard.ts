@@ -5,12 +5,16 @@ import { AppRuntime } from "../app-runtime";
 import { Database } from "~/db/service";
 import { session, project, sessionEvent, event } from "~/db/schema";
 import { desc, eq, inArray, and } from "drizzle-orm";
-import { SessionService, SessionError, type SessionMetrics } from "~/features/sessions/services/session";
+import {
+  SessionService,
+  SessionError,
+  type SessionMetrics,
+} from "~/features/sessions/services/session";
 import { PlatformLayer } from "../app-layer";
 
 export const getDashboardMetrics = createServerFn({ method: "GET" }).handler(() =>
   AppRuntime.runPromise(
-    Effect.gen(function* () {
+    Effect.gen(function*() {
       const db = yield* Database;
       const svc = yield* SessionService;
 
@@ -98,8 +102,10 @@ export const getDashboardMetrics = createServerFn({ method: "GET" }).handler(() 
 
       // Thinking level distribution
       const thinkingRows = yield* Effect.try({
-        try: () => db.select().from(sessionEvent).where(eq(sessionEvent.eventType, "thinking_change")).all(),
-        catch: (cause) => new SessionError({ cause, message: "Failed to get thinking level events" }),
+        try: () =>
+          db.select().from(sessionEvent).where(eq(sessionEvent.eventType, "thinking_change")).all(),
+        catch: (cause) =>
+          new SessionError({ cause, message: "Failed to get thinking level events" }),
       });
 
       const thinkingLevelCounts = new Map<string, number>();
@@ -130,7 +136,8 @@ export const getDashboardMetrics = createServerFn({ method: "GET" }).handler(() 
 
       // Error rate (sessions with tool errors / total)
       const errorSessionCount = allSessionMetrics.filter((s) => s.toolErrorCount > 0).length;
-      const errorRate = allSessionMetrics.length > 0 ? errorSessionCount / allSessionMetrics.length : 0;
+      const errorRate =
+        allSessionMetrics.length > 0 ? errorSessionCount / allSessionMetrics.length : 0;
 
       // Most used model overall
       const globalModelCounts = new Map<string, number>();
@@ -139,7 +146,9 @@ export const getDashboardMetrics = createServerFn({ method: "GET" }).handler(() 
           globalModelCounts.set(m, (globalModelCounts.get(m) ?? 0) + 1);
         }
       }
-      const mostUsedModelEntry = Array.from(globalModelCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+      const mostUsedModelEntry = Array.from(globalModelCounts.entries()).sort(
+        (a, b) => b[1] - a[1],
+      )[0];
       const mostUsedModel = mostUsedModelEntry
         ? { name: mostUsedModelEntry[0], count: mostUsedModelEntry[1] }
         : { name: "—", count: 0 };
@@ -166,7 +175,7 @@ export const getSessionsMetrics = createServerFn({ method: "GET" })
   .inputValidator((v: unknown) => v as { cursor?: string })
   .handler(({ data }) =>
     AppRuntime.runPromise(
-      Effect.gen(function* () {
+      Effect.gen(function*() {
         const db = yield* Database;
         const svc = yield* SessionService;
 
@@ -192,7 +201,7 @@ export const getSessionsMetrics = createServerFn({ method: "GET" })
 
 export const getHealthMetrics = createServerFn({ method: "GET" }).handler(() =>
   AppRuntime.runPromise(
-    Effect.gen(function* () {
+    Effect.gen(function*() {
       const db = yield* Database;
       const svc = yield* SessionService;
 
@@ -216,12 +225,7 @@ export const getHealthMetrics = createServerFn({ method: "GET" }).handler(() =>
           db
             .select()
             .from(event)
-            .where(
-              and(
-                inArray(event.sessionId, sessionIds),
-                eq(event.eventType, "message"),
-              ),
-            )
+            .where(and(inArray(event.sessionId, sessionIds), eq(event.eventType, "message")))
             .all(),
         catch: (cause) => new SessionError({ cause, message: "Failed to get tool events" }),
       });
@@ -291,7 +295,11 @@ export const getHealthMetrics = createServerFn({ method: "GET" }).handler(() =>
             .slice(0, 5),
         }))
         .filter((p) => p.tools.length > 0)
-        .sort((a, b) => b.tools.reduce((s, t) => s + t.errorCount, 0) - a.tools.reduce((s, t) => s + t.errorCount, 0));
+        .sort(
+          (a, b) =>
+            b.tools.reduce((s, t) => s + t.errorCount, 0) -
+            a.tools.reduce((s, t) => s + t.errorCount, 0),
+        );
 
       // Project session map
       const projectSessionMap = new Map<string, SessionMetrics[]>();
@@ -334,7 +342,8 @@ export const getHealthMetrics = createServerFn({ method: "GET" }).handler(() =>
       const totalToolCalls = allSessionMetrics.reduce((s, m) => s + m.toolCallCount, 0);
       const totalToolErrors = allSessionMetrics.reduce((s, m) => s + m.toolErrorCount, 0);
       const errorSessionCount = allSessionMetrics.filter((s) => s.toolErrorCount > 0).length;
-      const globalErrorRate = allSessionMetrics.length > 0 ? errorSessionCount / allSessionMetrics.length : 0;
+      const globalErrorRate =
+        allSessionMetrics.length > 0 ? errorSessionCount / allSessionMetrics.length : 0;
 
       return {
         totalSessions: allSessionMetrics.length,
@@ -350,9 +359,7 @@ export const getHealthMetrics = createServerFn({ method: "GET" }).handler(() =>
   ),
 );
 
-function toExtendedSession(
-  s: SessionMetrics,
-): {
+function toExtendedSession(s: SessionMetrics): {
   id: string;
   projectName: string;
   title: string | null;
@@ -396,10 +403,7 @@ function paginateExtendedSessions(
   }
 
   const items = sorted.slice(startIndex, startIndex + PAGE_SIZE).map(toExtendedSession);
-  const nextCursor =
-    startIndex + PAGE_SIZE < sorted.length
-      ? items[items.length - 1].id
-      : null;
+  const nextCursor = startIndex + PAGE_SIZE < sorted.length ? items[items.length - 1].id : null;
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const currentPage = Math.floor(startIndex / PAGE_SIZE) + 1;
 
@@ -410,7 +414,7 @@ export const getExpensiveSessions = createServerFn({ method: "GET" })
   .inputValidator((v: unknown) => v as { cursor?: string })
   .handler(({ data }) =>
     AppRuntime.runPromise(
-      Effect.gen(function* () {
+      Effect.gen(function*() {
         const db = yield* Database;
         const svc = yield* SessionService;
 
@@ -441,7 +445,7 @@ export const getHighTokenSessions = createServerFn({ method: "GET" })
   .inputValidator((v: unknown) => v as { cursor?: string })
   .handler(({ data }) =>
     AppRuntime.runPromise(
-      Effect.gen(function* () {
+      Effect.gen(function*() {
         const db = yield* Database;
         const svc = yield* SessionService;
 
@@ -472,7 +476,7 @@ export const getErrorProneSessions = createServerFn({ method: "GET" })
   .inputValidator((v: unknown) => v as { cursor?: string })
   .handler(({ data }) =>
     AppRuntime.runPromise(
-      Effect.gen(function* () {
+      Effect.gen(function*() {
         const db = yield* Database;
         const svc = yield* SessionService;
 
@@ -503,7 +507,7 @@ export const getProjectDetail = createServerFn({ method: "GET" })
   .inputValidator((v: unknown) => v as { projectId: string })
   .handler(({ data }) =>
     AppRuntime.runPromise(
-      Effect.gen(function* () {
+      Effect.gen(function*() {
         const db = yield* Database;
         const svc = yield* SessionService;
 
@@ -585,8 +589,7 @@ export const getProjectDetail = createServerFn({ method: "GET" })
               allProjectMetrics.length > 0 ? projectMessages / allProjectMetrics.length : 0,
             avgDuration:
               allProjectMetrics.length > 0 ? projectDuration / allProjectMetrics.length : 0,
-            errorRate:
-              allProjectMetrics.length > 0 ? errorSessions / allProjectMetrics.length : 0,
+            errorRate: allProjectMetrics.length > 0 ? errorSessions / allProjectMetrics.length : 0,
             mostUsedModel:
               Array.from(modelCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—",
           },

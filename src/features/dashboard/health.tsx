@@ -1,37 +1,10 @@
 import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "~/components/ui/chart";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Line,
-  LineChart,
-} from "recharts";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "~/components/ui/chart";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Line, LineChart } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import type { HealthMetrics, ToolMetrics, ExtendedSession, PaginatedSessions } from "./types";
-import {
-  AlertTriangle,
-  Wrench,
-  DollarSign,
-  Coins,
-  Bug,
-  Activity,
-  TrendingUp,
-} from "lucide-react";
+import { AlertTriangle, Wrench, DollarSign, Coins, Bug, Activity, TrendingUp } from "lucide-react";
 import { formatCost, formatTokens, formatDuration } from "~/lib/utils";
 import { Badge } from "~/components/ui/badge";
 import { DataTable, type Column } from "~/components/ui/data-table";
@@ -80,17 +53,15 @@ function SummaryBar({ metrics }: { metrics: HealthMetrics }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
       {items.map(({ label, value, icon: Icon, highlight }) => (
         <Card key={label}>
-          <CardHeader className="p-3">
-            <CardDescription className="flex items-center gap-1.5 text-xs">
-              <Icon className="size-3" />
-              {label}
-            </CardDescription>
+          <CardHeader>
+            <CardDescription>{label}</CardDescription>
             <CardTitle
-              className={`text-lg font-bold tabular-nums ${highlight ? "text-destructive" : ""}`}
+              className={`flex items-center gap-2 text-2xl font-bold tabular-nums ${highlight ? "text-destructive" : ""}`}
             >
+              <Icon className="size-4 text-muted-foreground" />
               {value}
             </CardTitle>
           </CardHeader>
@@ -158,7 +129,7 @@ function ErrorTrendChart({ data }: { data: HealthMetrics["errorTrend"] }) {
                       </span>
                       <span className="text-muted-foreground">
                         {name === "errorRate"
-                          ? `${(value as number * 100).toFixed(1)}%`
+                          ? `${((value as number) * 100).toFixed(1)}%`
                           : `${value}`}
                       </span>
                     </div>
@@ -180,15 +151,12 @@ function ErrorTrendChart({ data }: { data: HealthMetrics["errorTrend"] }) {
   );
 }
 
-// ─── Error Rate by Project ─────────────────────────────────
-
 function ErrorRateByProject({ data }: { data: HealthMetrics["errorRateByProject"] }) {
-  const top10 = data.slice(0, 10);
-  const barData = top10.map((d) => ({
-    name: d.project.length > 20 ? d.project.slice(0, 20) + "…" : d.project,
-    errorRate: d.errorRate,
-    sessions: d.sessionCount,
-  }));
+  const filtered = data.filter((d) => d.sessionCount >= 3);
+  const top10 = filtered
+    .sort((a, b) => b.errorRate * Math.log(b.sessionCount) - a.errorRate * Math.log(a.sessionCount))
+    .slice(0, 10);
+  const maxRate = top10.reduce((max, d) => Math.max(max, d.errorRate), 0);
 
   return (
     <Card>
@@ -200,40 +168,33 @@ function ErrorRateByProject({ data }: { data: HealthMetrics["errorRateByProject"
         <CardDescription>Sessions with tool errors / total</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={{}} className="h-full min-h-80 w-full">
-          <BarChart data={barData} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-            <XAxis
-              type="number"
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
-            />
-            <YAxis
-              type="category"
-              dataKey="name"
-              tickLine={false}
-              axisLine={false}
-              width={160}
-              tick={{ fontSize: 11 }}
-            />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  formatter={(value, _name, item) => (
-                    <div className="flex items-center gap-2 font-mono">
-                      <span>Error rate: {(value as number * 100).toFixed(1)}%</span>
-                      <span className="text-muted-foreground">
-                        ({item.payload.sessions} sessions)
-                      </span>
-                    </div>
-                  )}
+        <div className="space-y-1">
+          {top10.map((d) => {
+            const color =
+              d.errorRate > 0.3 ? "var(--chart-1)" : d.errorRate > 0.1 ? "var(--chart-3)" : "var(--chart-2)";
+            return (
+              <div
+                key={d.project}
+                className="relative flex items-center gap-3 rounded-md px-2 py-1.5"
+              >
+                <span
+                  className="absolute inset-y-0 left-0 rounded-md opacity-10"
+                  style={{
+                    width: `${(d.errorRate / maxRate) * 100}%`,
+                    backgroundColor: color,
+                  }}
                 />
-              }
-            />
-            <Bar dataKey="errorRate" fill="var(--chart-1)" radius={[0, 4, 4, 0]} minPointSize={3} />
-          </BarChart>
-        </ChartContainer>
+                <span className="relative flex-1 truncate text-sm">{d.project}</span>
+                <span className="relative text-sm tabular-nums" style={{ color }}>
+                  {(d.errorRate * 100).toFixed(0)}%
+                </span>
+                <span className="relative text-xs tabular-nums text-muted-foreground">
+                  {d.sessionCount}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );
@@ -253,7 +214,7 @@ function ToolErrorBreakdown({
   const tools =
     tab === "global"
       ? mostFailingTools.slice(0, 8)
-      : failingToolsByProject.find((p) => p.project === tab)?.tools ?? [];
+      : (failingToolsByProject.find((p) => p.project === tab)?.tools ?? []);
 
   const projects = failingToolsByProject.map((p) => p.project);
 
@@ -279,9 +240,8 @@ function ToolErrorBreakdown({
         <div className="flex flex-wrap gap-1">
           <button
             onClick={() => setTab("global")}
-            className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${
-              tab === "global" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"
-            }`}
+            className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${tab === "global" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"
+              }`}
           >
             All
           </button>
@@ -289,9 +249,8 @@ function ToolErrorBreakdown({
             <button
               key={p}
               onClick={() => setTab(p)}
-              className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${
-                tab === p ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"
-              }`}
+              className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${tab === p ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"
+                }`}
             >
               {p.length > 10 ? p.slice(0, 10) + "…" : p}
             </button>
@@ -308,13 +267,7 @@ function ToolErrorBreakdown({
             <BarChart data={barData} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
               <XAxis type="number" tickLine={false} axisLine={false} />
-              <YAxis
-                type="category"
-                dataKey="name"
-                tickLine={false}
-                axisLine={false}
-                width={130}
-              />
+              <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} width={130} />
               <ChartTooltip
                 content={
                   <ChartTooltipContent
@@ -345,9 +298,7 @@ const sessionColumns: Column<ExtendedSession>[] = [
   {
     id: "title",
     header: "Title",
-    accessor: (s) => (
-      <span className="line-clamp-1 font-medium">{s.title ?? "(untitled)"}</span>
-    ),
+    accessor: (s) => <span className="line-clamp-1 font-medium">{s.title ?? "(untitled)"}</span>,
     className: "max-w-56",
   },
   {
@@ -437,7 +388,12 @@ function SessionTableCard({ tab }: SessionTableCardProps) {
   const [cursorIndex, setCursorIndex] = useState(0);
   const currentCursor = cursorStack[cursorIndex];
 
-  const queryKey = tab === "expensive" ? "expensive-sessions" : tab === "tokens" ? "high-token-sessions" : "error-prone-sessions";
+  const queryKey =
+    tab === "expensive"
+      ? "expensive-sessions"
+      : tab === "tokens"
+        ? "high-token-sessions"
+        : "error-prone-sessions";
 
   const queryFn = {
     expensive: getExpensiveSessions,
@@ -501,10 +457,7 @@ function SessionTables() {
   const [activeTab, setActiveTab] = useState<TabKey>("expensive");
 
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={(v: string) => setActiveTab(v as TabKey)}
-    >
+    <Tabs value={activeTab} onValueChange={(v: string) => setActiveTab(v as TabKey)}>
       <Card>
         <CardHeader className="pb-0">
           <TabsList>
@@ -535,10 +488,8 @@ export function HealthDashboard({ metrics }: HealthProps) {
     <div className="flex flex-col gap-4">
       <SummaryBar metrics={metrics} />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <ErrorTrendChart data={metrics.errorTrend} />
-        <ErrorRateByProject data={metrics.errorRateByProject} />
-      </div>
+      <ErrorTrendChart data={metrics.errorTrend} />
+      <ErrorRateByProject data={metrics.errorRateByProject} />
 
       <ToolErrorBreakdown
         mostFailingTools={metrics.mostFailingTools}
