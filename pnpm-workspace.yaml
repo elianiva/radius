@@ -16,3 +16,9 @@ peerDependencyRules:
   allowedVersions:
     vite: "*"
     vitest: "*"
+
+allowBuilds:
+  esbuild: true
+  msw: true
+  sharp: true
+  workerd: true

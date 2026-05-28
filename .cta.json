@@ -12,10 +12,5 @@
   "routerOnly": false,
   "version": 1,
   "framework": "react",
-  "chosenAddOns": [
-    "cloudflare",
-    "tanstack-query",
-    "compiler",
-    "table"
-  ]
+  "chosenAddOns": ["cloudflare", "tanstack-query", "compiler", "table"]
 }
