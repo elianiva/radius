@@ -17,8 +17,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { CostOverTime, DashboardMetrics } from "./types";
+import type { DashboardMetrics } from "./types";
 import { HeatmapGrid } from "~/components/ui/heatmap-grid";
+import { buildHeatmapWeeks } from "~/lib/heatmap";
 import { useMemo } from "react";
 import { DollarSign, MessageSquare, Coins, TrendingUp, CalendarDays } from "lucide-react";
 import { formatCost, formatTokens } from "~/lib/utils";
@@ -71,7 +72,17 @@ interface OverviewProps {
 }
 
 function ActivityHeatmap({ data }: { data: DashboardMetrics["costOverTime"] }) {
-  const weeks = useMemo(() => buildWeeks(data), [data]);
+  const weeks = useMemo(
+    () =>
+      buildHeatmapWeeks(
+        data.map((d) => ({
+          date: d.date,
+          sessionCount: d.sessions,
+          cost: d.cost,
+        })),
+      ),
+    [data],
+  );
 
   return (
     <Card className="lg:col-span-3">
@@ -87,84 +98,6 @@ function ActivityHeatmap({ data }: { data: DashboardMetrics["costOverTime"] }) {
       </CardContent>
     </Card>
   );
-}
-
-function buildWeeks(
-  data: DashboardMetrics["costOverTime"],
-): { days: (import("~/components/ui/heatmap-grid").HeatmapCell | null)[] }[] {
-  // Build weeks from the last 365 days
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  const oneYearAgo = new Date(today);
-  oneYearAgo.setUTCFullYear(oneYearAgo.getUTCFullYear() - 1);
-
-  // Map date -> data for quick lookup
-  const dayMap = new Map<string, CostOverTime>();
-  for (const d of data) {
-    dayMap.set(d.date, d);
-  }
-
-  // Generate all days from one year ago to today
-  const allDays: { date: string; dateLabel: string; sessionCount: number; cost: number }[] = [];
-  const cursor = new Date(oneYearAgo);
-  while (cursor <= today) {
-    const dateStr = cursor.toISOString().slice(0, 10);
-    const dayData = dayMap.get(dateStr);
-    allDays.push({
-      date: dateStr,
-      dateLabel: cursor.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-      sessionCount: dayData?.sessions ?? 0,
-      cost: dayData?.cost ?? 0,
-    });
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-
-  // Compute intensity buckets (0-4 based on session count distribution)
-  const values = allDays.map((d) => d.sessionCount).filter((v) => v > 0);
-  const max = values.length > 0 ? Math.max(...values) : 0;
-
-  // Group into weeks (Sunday start)
-  const firstDay = new Date(allDays[0].date + "T00:00:00Z");
-  const dayOfWeek = firstDay.getUTCDay(); // 0=Sun
-  // Pad first week with nulls
-  const weeks: { days: (import("~/components/ui/heatmap-grid").HeatmapCell | null)[] }[] = [];
-  let currentWeekDays: (import("~/components/ui/heatmap-grid").HeatmapCell | null)[] = [];
-
-  // Add leading nulls to align to Sunday
-  for (let i = 0; i < dayOfWeek; i++) {
-    currentWeekDays.push(null);
-  }
-
-  for (const d of allDays) {
-    const intensity =
-      max > 0
-        ? Math.min(4, Math.ceil((d.sessionCount / max) * 4) || (d.sessionCount > 0 ? 1 : 0))
-        : 0;
-    currentWeekDays.push({
-      date: d.date,
-      dateLabel: d.dateLabel,
-      intensity,
-      tooltip:
-        d.sessionCount > 0
-          ? `${d.sessionCount} session${d.sessionCount !== 1 ? "s" : ""} — $${formatCost(d.cost)} on ${d.dateLabel}`
-          : `No activity on ${d.dateLabel}`,
-    });
-
-    if (currentWeekDays.length === 7) {
-      weeks.push({ days: currentWeekDays });
-      currentWeekDays = [];
-    }
-  }
-
-  // Pad last week with nulls
-  if (currentWeekDays.length > 0) {
-    while (currentWeekDays.length < 7) {
-      currentWeekDays.push(null);
-    }
-    weeks.push({ days: currentWeekDays });
-  }
-
-  return weeks;
 }
 
 function SummaryCards({ metrics }: OverviewProps) {

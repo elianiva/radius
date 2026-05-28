@@ -1,14 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-
-import {
-  useReactTable,
-  getCoreRowModel,
-  flexRender,
-  createColumnHelper,
-  type ColumnDef,
-} from "@tanstack/react-table";
-import { Suspense, useMemo } from "react";
+import { Suspense } from "react";
 import { Skeleton } from "~/components/ui/skeleton";
 import { getSessionEvents } from "~/server/rpc/sessions";
 import { ArrowLeft } from "lucide-react";
@@ -18,113 +10,93 @@ export const Route = createFileRoute("/sessions/$sessionId")({
   component: SessionDetail,
 });
 
-interface ParsedEvent extends TimelineEvent {
-  parsed: Record<string, unknown>;
+function EventRow({ event }: { event: TimelineEvent }) {
+  let parsed: Record<string, unknown> = {};
+  try {
+    parsed = JSON.parse(event.data) as Record<string, unknown>;
+  } catch {
+    parsed = { raw: event.data };
+  }
+
+  const knownKeys = ["role", "model", "stopReason", "usage", "content", "toolName", "isError"];
+  const known: { key: string; value: string }[] = [];
+  const extra: Record<string, unknown> = {};
+
+  for (const [k, v] of Object.entries(parsed)) {
+    if (knownKeys.includes(k)) {
+      known.push({
+        key: k.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase()),
+        value: typeof v === "string" ? v : JSON.stringify(v),
+      });
+    } else {
+      extra[k] = v;
+    }
+  }
+
+  const contentPreview = Array.isArray(parsed.content)
+    ? (parsed.content as { type: string; text?: string }[])
+        .filter((c) => c.type === "text" && c.text)
+        .map((c) => c.text!)
+        .join(" ")
+        .slice(0, 120)
+    : typeof parsed.content === "string"
+      ? parsed.content.slice(0, 120)
+      : null;
+
+  return (
+    <details className="group border-b last:border-0">
+      <summary className="flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-muted/30">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">
+            {new Date(event.createdAt).toLocaleTimeString()}
+          </span>
+          <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium">
+            {event.eventType}
+          </span>
+        </span>
+        {contentPreview && (
+          <span className="line-clamp-1 flex-1 text-xs text-muted-foreground">
+            {contentPreview}
+          </span>
+        )}
+      </summary>
+      <div className="border-t px-4 py-3">
+        <div className="mb-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+          <span className="text-muted-foreground">ID</span>
+          <span className="font-mono">{event.id}</span>
+          {known.map(({ key }) => (
+            <span key={key} className="text-muted-foreground">
+              {key}
+            </span>
+          ))}
+          {known.map(({ key, value }) => (
+            <span key={key} className="break-all font-mono">
+              {value}
+            </span>
+          ))}
+        </div>
+        {Object.keys(extra).length > 0 && (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+              Raw data
+            </summary>
+            <pre className="mt-1 overflow-x-auto rounded bg-muted p-2 text-xs">
+              {JSON.stringify(extra, null, 2)}
+            </pre>
+          </details>
+        )}
+      </div>
+    </details>
+  );
 }
 
-function EventsTable({ sessionId }: { sessionId: string }) {
+function EventsList({ sessionId }: { sessionId: string }) {
   const { data: events } = useSuspenseQuery({
     queryKey: ["session-events", sessionId],
     queryFn: () => getSessionEvents({ data: { sessionId } }),
   });
 
-  const { rows, columns } = useMemo(() => {
-    if (!events || events.length === 0)
-      return { rows: [], columns: [] as ColumnDef<ParsedEvent>[] };
-
-    const allKeys = new Set<string>();
-    const parsed: ParsedEvent[] = events.map((ev) => {
-      let parsedData: Record<string, unknown> = {};
-      try {
-        parsedData = JSON.parse(ev.data) as Record<string, unknown>;
-      } catch {
-        parsedData = { raw: ev.data };
-      }
-      for (const key of Object.keys(parsedData)) {
-        allKeys.add(key);
-      }
-      return { ...ev, parsed: parsedData };
-    });
-
-    const sortedKeys = Array.from(allKeys).sort();
-    const ch = createColumnHelper<ParsedEvent>();
-
-    const columns: ColumnDef<ParsedEvent>[] = [
-      ch.accessor("id", {
-        header: "ID",
-        cell: (info) => {
-          const id = info.getValue();
-          return (
-            <span className="font-mono text-xs">{id.length > 12 ? id.slice(0, 8) + "…" : id}</span>
-          );
-        },
-      }),
-      ch.accessor("eventType", {
-        header: "Type",
-      }),
-      ch.accessor("createdAt", {
-        header: "Created",
-        cell: (info) => new Date(info.getValue()).toLocaleString(),
-      }),
-      ...sortedKeys.map((key) =>
-        ch.accessor(
-          (row) => {
-            const val = row.parsed[key];
-            if (val === null || val === undefined) return "";
-            if (typeof val === "string") return val;
-            return JSON.stringify(val);
-          },
-          {
-            id: `data_${key}`,
-            header: key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase()),
-            cell: (info) => {
-              const val = info.row.original.parsed[key];
-              if (Array.isArray(val)) {
-                const text = val
-                  .filter(
-                    (c): c is { type: string; text?: string } =>
-                      typeof c === "object" && c !== null,
-                  )
-                  .map((c) => (c.type === "text" ? (c.text ?? "") : `[${c.type}]`))
-                  .filter(Boolean)
-                  .join(" ");
-                return (
-                  <span
-                    className="line-clamp-2 break-all text-xs"
-                    title={text || JSON.stringify(val)}
-                  >
-                    {text || JSON.stringify(val)}
-                  </span>
-                );
-              }
-              if (typeof val === "string")
-                return (
-                  <span className="line-clamp-2 break-all text-xs" title={val}>
-                    {val}
-                  </span>
-                );
-              const str = JSON.stringify(val);
-              return (
-                <code className="line-clamp-2 break-all text-xs block" title={str}>
-                  {str}
-                </code>
-              );
-            },
-          },
-        ),
-      ),
-    ];
-
-    return { rows: parsed, columns };
-  }, [events]);
-
-  const table = useReactTable({
-    data: rows,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
-  if (rows.length === 0) {
+  if (!events || events.length === 0) {
     return (
       <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
         No events found for this session.
@@ -133,34 +105,10 @@ function EventsTable({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded border">
-      <table className="w-full text-sm">
-        <thead>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id} className="border-b bg-muted/50">
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  className="w-64 px-4 py-2 text-left font-medium text-muted-foreground"
-                >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody>
-          {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30">
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="w-64 min-w-0 overflow-hidden px-4 py-2">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="divide-y rounded border">
+      {events.map((event) => (
+        <EventRow key={event.id} event={event} />
+      ))}
     </div>
   );
 }
@@ -192,7 +140,7 @@ function SessionDetail() {
           </div>
         }
       >
-        <EventsTable sessionId={sessionId} />
+        <EventsList sessionId={sessionId} />
       </Suspense>
     </main>
   );

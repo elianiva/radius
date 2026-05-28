@@ -41,20 +41,7 @@ export const getSessionsList = createServerFn({ method: "GET" })
   .handler(({ data }) =>
     AppRuntime.runPromise(
       Effect.gen(function* () {
-        yield* Effect.logInfo("getSessionsList: Listing").pipe(
-          Effect.annotateLogs({
-            operation: "getSessionsList",
-            cursor: data.cursor ?? null,
-          }),
-        );
         const result = yield* SessionService.use((svc) => svc.list({ cursor: data.cursor }));
-        yield* Effect.logInfo("getSessionsList: Returning").pipe(
-          Effect.annotateLogs({
-            operation: "getSessionsList",
-            count: result.items.length,
-            hasMore: result.cursor !== null,
-          }),
-        );
         return result;
       }),
     ),

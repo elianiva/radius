@@ -1,4 +1,4 @@
-import { Context, Data, Effect, Cause, FileSystem, Layer, Path, Queue, Ref, Stream } from "effect";
+import { Context, Data, Effect, Cause, FileSystem, Layer, Path, Queue, Stream } from "effect";
 import { homedir } from "node:os";
 
 import * as schema from "~/db/schema";
@@ -144,12 +144,11 @@ export class PiAdapterService extends Context.Service<PiAdapterService, PiAdapte
 
             const allJsonlFiles = jsonlResults.flat();
             const totalSessions = allJsonlFiles.length;
-            const progressRef = yield* Ref.make({
-              files: 0,
-              projects: 0,
-              events: 0,
-              sessionEvents: 0,
-            });
+
+            const seenProjects = new Set<string>();
+            let files = 0;
+            let events = 0;
+            let sessionEvents = 0;
 
             const knownEventTypes = new Set([
               "model_change",
@@ -158,6 +157,25 @@ export class PiAdapterService extends Context.Service<PiAdapterService, PiAdapte
               "session_info",
               "label",
             ]);
+
+            function dbInsert(statement: () => void): Effect.Effect<void, PiIngestError> {
+              return Effect.try({
+                try: statement,
+                catch: (cause) => new PiIngestError({ cause, message: "DB insert failed" }),
+              });
+            }
+
+            function cleanEntryData(
+              entry: Entry,
+            ): Record<string, unknown> {
+              const base =
+                entry.type === "message"
+                  ? (entry.message as Record<string, unknown>)
+                  : { ...entry };
+              const { id: _id, parentId: _pid, timestamp: _ts, type: _t, message: _m, ...rest } =
+                base;
+              return rest;
+            }
 
             yield* Effect.all(
               allJsonlFiles.map(({ dir: dirPath, file }, idx) =>
@@ -204,81 +222,60 @@ export class PiAdapterService extends Context.Service<PiAdapterService, PiAdapte
                     totalSessions,
                   });
 
-                  yield* Effect.try({
-                    try: () =>
-                      db
-                        .insert(schema.project)
-                        .values({
-                          id: header.cwd,
-                          name: projectName,
-                          createdAt: now,
-                          updatedAt: now,
-                        })
-                        .onConflictDoNothing()
-                        .run(),
-                    catch: (cause) =>
-                      new PiIngestError({
-                        cause,
-                        message: `Failed to insert project: ${header.cwd}`,
-                      }),
-                  });
+                  seenProjects.add(header.cwd);
 
-                  yield* Effect.try({
-                    try: () =>
-                      db
-                        .insert(schema.session)
-                        .values({
-                          id: header.id,
-                          agent: "Pi",
-                          projectId: header.cwd,
-                          directory: header.cwd,
-                          title,
-                          createdAt: parseTimestamp(header.timestamp),
-                          updatedAt: now,
-                        })
-                        .onConflictDoNothing()
-                        .run(),
-                    catch: (cause) =>
-                      new PiIngestError({
-                        cause,
-                        message: `Failed to insert session: ${header.id}`,
-                      }),
-                  });
+                  yield* dbInsert(() =>
+                    db
+                      .insert(schema.project)
+                      .values({
+                        id: header.cwd,
+                        name: projectName,
+                        createdAt: now,
+                        updatedAt: now,
+                      })
+                      .onConflictDoNothing()
+                      .run(),
+                  );
 
-                  const entryEffects = entries.map((entry) =>
-                    Effect.suspend(() => {
-                      const data =
-                        entry.type === "message"
-                          ? (entry.message as Record<string, unknown>)
-                          : { ...entry };
-                      delete data.id;
-                      delete data.parentId;
-                      delete data.timestamp;
-                      delete data.type;
+                  yield* dbInsert(() =>
+                    db
+                      .insert(schema.session)
+                      .values({
+                        id: header.id,
+                        agent: "Pi",
+                        projectId: header.cwd,
+                        directory: header.cwd,
+                        title,
+                        createdAt: parseTimestamp(header.timestamp),
+                        updatedAt: now,
+                      })
+                      .onConflictDoNothing()
+                      .run(),
+                  );
 
-                      if (entry.type === "message") {
-                        return Effect.try({
-                          try: () =>
-                            db
-                              .insert(schema.event)
-                              .values({
-                                id: entry.id,
-                                sessionId: header.id,
-                                parentId: entry.parentId,
-                                eventType: "message",
-                                createdAt: parseTimestamp(entry.timestamp),
-                                data: JSON.stringify(data),
-                              })
-                              .onConflictDoNothing()
-                              .run(),
-                          catch: (cause) =>
-                            new PiIngestError({
-                              cause,
-                              message: `Failed to insert message event: ${entry.id}`,
-                            }),
-                        });
-                      }
+                  let localEvents = 0;
+                  let localSessionEvents = 0;
 
+                  for (const entry of entries) {
+                    const data = cleanEntryData(entry);
+
+                    if (entry.type === "message") {
+                      yield* dbInsert(() =>
+                        db
+                          .insert(schema.event)
+                          .values({
+                            id: entry.id,
+                            sessionId: header.id,
+                            parentId: entry.parentId,
+                            eventType: "message",
+                            createdAt: parseTimestamp(entry.timestamp),
+                            data: JSON.stringify(data),
+                          })
+                          .onConflictDoNothing()
+                          .run(),
+                      );
+                      localEvents++;
+                    } else {
                       const eventType =
                         entry.type === "thinking_level_change"
                           ? "thinking_change"
@@ -286,76 +283,49 @@ export class PiAdapterService extends Context.Service<PiAdapterService, PiAdapte
                             ? entry.type
                             : "custom";
 
-                      return Effect.try({
-                        try: () =>
-                          db
-                            .insert(schema.sessionEvent)
-                            .values({
-                              id: entry.id,
-                              sessionId: header.id,
-                              eventType,
-                              createdAt: parseTimestamp(entry.timestamp),
-                              data: JSON.stringify(data),
-                            })
-                            .onConflictDoNothing()
-                            .run(),
-                        catch: (cause) =>
-                          new PiIngestError({
-                            cause,
-                            message: `Failed to insert session event: ${entry.id}`,
-                          }),
-                      });
-                    }),
-                  );
-
-                  const matchTags = yield* Effect.all(
-                    entryEffects.map((eff) =>
-                      Effect.matchEffect(eff, {
-                        onSuccess: () => Effect.succeed("event" as const),
-                        onFailure: (e) => Effect.fail(e),
-                      }),
-                    ),
-                    { concurrency: 10 },
-                  );
-
-                  let events = 0;
-                  let sessionEvents = 0;
-                  for (const tag of matchTags) {
-                    if (tag === "event") events++;
-                    else sessionEvents++;
+                      yield* dbInsert(() =>
+                        db
+                          .insert(schema.sessionEvent)
+                          .values({
+                            id: entry.id,
+                            sessionId: header.id,
+                            eventType,
+                            createdAt: parseTimestamp(entry.timestamp),
+                            data: JSON.stringify(data),
+                          })
+                          .onConflictDoNothing()
+                          .run(),
+                      );
+                      localSessionEvents++;
+                    }
                   }
 
-                  yield* Ref.update(progressRef, (p) => ({
-                    files: p.files + 1,
-                    projects: p.projects + 1,
-                    events: p.events + events,
-                    sessionEvents: p.sessionEvents + sessionEvents,
-                  }));
+                  files++;
+                  events += localEvents;
+                  sessionEvents += localSessionEvents;
                 }),
               ),
-              { concurrency: 10 },
+              { concurrency: 1 },
             );
-
-            const totals = yield* Ref.get(progressRef);
 
             yield* Effect.logInfo("Ingest complete").pipe(
               Effect.annotateLogs({
-                files: totals.files,
+                files,
                 sessions: totalSessions,
-                projects: totals.projects,
-                events: totals.events,
-                sessionEvents: totals.sessionEvents,
+                projects: seenProjects.size,
+                events,
+                sessionEvents,
               }),
             );
 
             yield* Queue.offer(queue, {
               stage: "done",
               result: {
-                files: totals.files,
+                files,
                 sessions: totalSessions,
-                projects: totals.projects,
-                events: totals.events,
-                sessionEvents: totals.sessionEvents,
+                projects: seenProjects.size,
+                events,
+                sessionEvents,
               },
             });
 

@@ -4,7 +4,7 @@ import { Effect, Layer } from "effect";
 import { AppRuntime } from "../app-runtime";
 import { Database } from "~/db/service";
 import { session, project } from "~/db/schema";
-import { desc, and, lt } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 import { SessionService, type SessionMetrics } from "~/features/sessions/services/session";
 import { PlatformLayer } from "../app-layer";
 
@@ -110,8 +110,6 @@ export const getDashboardMetrics = createServerFn({ method: "GET" }).handler(() 
   ),
 );
 
-const PAGE_SIZE = 50;
-
 export const getSessionsMetrics = createServerFn({ method: "GET" })
   .inputValidator((v: unknown) => v as { cursor?: string })
   .handler(({ data }) =>
@@ -120,25 +118,13 @@ export const getSessionsMetrics = createServerFn({ method: "GET" })
         const db = yield* Database;
         const svc = yield* SessionService;
 
-        const conditions = data.cursor ? [lt(session.id, data.cursor)] : [];
-
-        const sessionRows = db
-          .select()
-          .from(session)
-          .where(conditions.length > 0 ? and(...conditions) : undefined)
-          .orderBy(desc(session.createdAt))
-          .limit(PAGE_SIZE + 1)
-          .all();
-
-        const hasMore = sessionRows.length > PAGE_SIZE;
-        const items = hasMore ? sessionRows.slice(0, PAGE_SIZE) : sessionRows;
-        const cursor = hasMore ? items[items.length - 1]!.id : null;
+        const result = yield* svc.list({ cursor: data.cursor });
 
         const projectRows = db.select().from(project).all();
         const projectNameMap = new Map(projectRows.map((p) => [p.id, p.name]));
 
         const metrics = yield* Effect.all(
-          items.map((sess) =>
+          result.items.map((sess) =>
             svc.computeSessionMetrics({
               session: sess,
               projectName: projectNameMap.get(sess.projectId) ?? "Unknown",
@@ -147,7 +133,7 @@ export const getSessionsMetrics = createServerFn({ method: "GET" })
           { concurrency: 10 },
         );
 
-        return { items: metrics, cursor };
+        return { items: metrics, cursor: result.cursor };
       }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
     ),
   );

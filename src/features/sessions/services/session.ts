@@ -29,6 +29,15 @@ interface Usage {
   };
 }
 
+function isUsage(value: unknown): value is Usage {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "totalTokens" in value &&
+    typeof (value as Record<string, unknown>).totalTokens === "number"
+  );
+}
+
 export interface SessionMetrics {
   readonly id: string;
   readonly title: string | null;
@@ -142,15 +151,6 @@ export class SessionService extends Context.Service<SessionService, SessionServi
           conditions.push(lt(session.id, params.cursor));
         }
 
-        yield* Effect.logInfo("Querying").pipe(
-          Effect.annotateLogs({
-            limit,
-            cursor: params.cursor ?? null,
-            agent: params.agent ?? null,
-            archived: params.archived ?? false,
-          }),
-        );
-
         const rows = yield* Effect.try({
           try: () =>
             db
@@ -163,15 +163,9 @@ export class SessionService extends Context.Service<SessionService, SessionServi
           catch: (cause) => new SessionError({ cause, message: "Failed to list sessions" }),
         });
 
-        yield* Effect.logInfo("Rows fetched").pipe(Effect.annotateLogs("count", rows.length));
-
         const hasMore = rows.length > limit;
         const items = hasMore ? rows.slice(0, limit) : rows;
         const cursor = hasMore ? items[items.length - 1].id : null;
-
-        yield* Effect.logInfo("Done").pipe(
-          Effect.annotateLogs({ returned: items.length, hasMore }),
-        );
 
         return { items, cursor };
       });
@@ -205,9 +199,9 @@ export class SessionService extends Context.Service<SessionService, SessionServi
             } else if (parsed.role === "assistant") {
               assistantMessageCount++;
               if (parsed.model) models.add(parsed.model as string);
-              if (parsed.usage) {
-                totalTokens += (parsed.usage as Usage).totalTokens ?? 0;
-                totalCost += (parsed.usage as Usage).cost?.total ?? 0;
+              if (isUsage(parsed.usage)) {
+                totalTokens += parsed.usage.totalTokens;
+                totalCost += parsed.usage.cost.total;
               }
               if (parsed.stopReason) {
                 stopReasons[parsed.stopReason as string] =
