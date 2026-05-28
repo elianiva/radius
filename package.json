@@ -7,13 +7,11 @@
     "build": "vp build",
     "preview": "vp preview",
     "test": "vp test run",
-    "deploy": "pnpm run build && wrangler deploy",
     "prepare": "vp config",
     "ui": "vpx shadcn@latest"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
-    "@cloudflare/vite-plugin": "^1.26.0",
     "@effect/platform": "^0.96.1",
     "@effect/platform-node": "^0.106.0",
     "@faker-js/faker": "^10.3.0",
@@ -24,6 +22,7 @@
     "@tanstack/match-sorter-utils": "latest",
     "@tanstack/react-router": "latest",
     "@tanstack/react-start": "latest",
+    "@tanstack/react-table": "^8.21.3",
     "@tanstack/router-plugin": "^1.132.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -52,8 +51,7 @@
     "typescript": "^6.0.2",
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
     "vite-plus": "latest",
-    "vitest": "npm:@voidzero-dev/vite-plus-test@latest",
-    "wrangler": "^4.70.0"
+    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
   },
   "packageManager": "pnpm@11.4.0"
 }
