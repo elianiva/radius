@@ -83,9 +83,13 @@ export interface HealthMetrics {
   errorRateByProject: { project: string; errorRate: number; sessionCount: number }[];
   mostFailingTools: ToolMetrics[];
   failingToolsByProject: { project: string; tools: ToolMetrics[] }[];
-  expensiveSessions: ExtendedSession[];
-  highTokenSessions: ExtendedSession[];
-  errorProneSessions: ExtendedSession[];
+}
+
+export interface PaginatedSessions {
+  items: ExtendedSession[];
+  nextCursor: string | null;
+  totalPages: number;
+  currentPage: number;
 }
 
 export interface ProjectDetail {

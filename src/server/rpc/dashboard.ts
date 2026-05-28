@@ -336,25 +336,6 @@ export const getHealthMetrics = createServerFn({ method: "GET" }).handler(() =>
       const errorSessionCount = allSessionMetrics.filter((s) => s.toolErrorCount > 0).length;
       const globalErrorRate = allSessionMetrics.length > 0 ? errorSessionCount / allSessionMetrics.length : 0;
 
-      // Expensive sessions (top 10 by cost)
-      const expensiveSessions = [...allSessionMetrics]
-        .sort((a, b) => b.totalCost - a.totalCost)
-        .slice(0, 10)
-        .map(toExtendedSession);
-
-      // High token sessions (top 10 by tokens)
-      const highTokenSessions = [...allSessionMetrics]
-        .sort((a, b) => b.totalTokens - a.totalTokens)
-        .slice(0, 10)
-        .map(toExtendedSession);
-
-      // Error prone sessions (top 10 by tool errors)
-      const errorProneSessions = [...allSessionMetrics]
-        .filter((s) => s.toolErrorCount > 0)
-        .sort((a, b) => b.toolErrorCount - a.toolErrorCount)
-        .slice(0, 10)
-        .map(toExtendedSession);
-
       return {
         totalSessions: allSessionMetrics.length,
         totalToolCalls,
@@ -364,9 +345,6 @@ export const getHealthMetrics = createServerFn({ method: "GET" }).handler(() =>
         errorRateByProject,
         mostFailingTools,
         failingToolsByProject,
-        expensiveSessions,
-        highTokenSessions,
-        errorProneSessions,
       };
     }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
   ),
@@ -401,6 +379,125 @@ function toExtendedSession(
     createdAt: s.createdAt,
   };
 }
+
+const PAGE_SIZE = 15;
+
+function paginateExtendedSessions(
+  sessions: SessionMetrics[],
+  sortFn: (a: SessionMetrics, b: SessionMetrics) => number,
+  cursor?: string,
+) {
+  const sorted = [...sessions].sort(sortFn);
+
+  let startIndex = 0;
+  if (cursor) {
+    const cursorIndex = sorted.findIndex((s) => s.id === cursor);
+    if (cursorIndex >= 0) startIndex = cursorIndex + 1;
+  }
+
+  const items = sorted.slice(startIndex, startIndex + PAGE_SIZE).map(toExtendedSession);
+  const nextCursor =
+    startIndex + PAGE_SIZE < sorted.length
+      ? items[items.length - 1].id
+      : null;
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const currentPage = Math.floor(startIndex / PAGE_SIZE) + 1;
+
+  return { items, nextCursor, totalPages, currentPage };
+}
+
+export const getExpensiveSessions = createServerFn({ method: "GET" })
+  .inputValidator((v: unknown) => v as { cursor?: string })
+  .handler(({ data }) =>
+    AppRuntime.runPromise(
+      Effect.gen(function* () {
+        const db = yield* Database;
+        const svc = yield* SessionService;
+
+        const sessionRows = db.select().from(session).all();
+        const projectRows = db.select().from(project).all();
+        const projectNameMap = new Map(projectRows.map((p) => [p.id, p.name]));
+
+        const allMetrics = yield* Effect.all(
+          sessionRows.map((sess) =>
+            svc.computeSessionMetrics({
+              session: sess,
+              projectName: projectNameMap.get(sess.projectId) ?? "Unknown",
+            }),
+          ),
+          { concurrency: 10 },
+        );
+
+        return paginateExtendedSessions(
+          allMetrics,
+          (a, b) => b.totalCost - a.totalCost,
+          data.cursor,
+        );
+      }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
+    ),
+  );
+
+export const getHighTokenSessions = createServerFn({ method: "GET" })
+  .inputValidator((v: unknown) => v as { cursor?: string })
+  .handler(({ data }) =>
+    AppRuntime.runPromise(
+      Effect.gen(function* () {
+        const db = yield* Database;
+        const svc = yield* SessionService;
+
+        const sessionRows = db.select().from(session).all();
+        const projectRows = db.select().from(project).all();
+        const projectNameMap = new Map(projectRows.map((p) => [p.id, p.name]));
+
+        const allMetrics = yield* Effect.all(
+          sessionRows.map((sess) =>
+            svc.computeSessionMetrics({
+              session: sess,
+              projectName: projectNameMap.get(sess.projectId) ?? "Unknown",
+            }),
+          ),
+          { concurrency: 10 },
+        );
+
+        return paginateExtendedSessions(
+          allMetrics,
+          (a, b) => b.totalTokens - a.totalTokens,
+          data.cursor,
+        );
+      }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
+    ),
+  );
+
+export const getErrorProneSessions = createServerFn({ method: "GET" })
+  .inputValidator((v: unknown) => v as { cursor?: string })
+  .handler(({ data }) =>
+    AppRuntime.runPromise(
+      Effect.gen(function* () {
+        const db = yield* Database;
+        const svc = yield* SessionService;
+
+        const sessionRows = db.select().from(session).all();
+        const projectRows = db.select().from(project).all();
+        const projectNameMap = new Map(projectRows.map((p) => [p.id, p.name]));
+
+        const allMetrics = yield* Effect.all(
+          sessionRows.map((sess) =>
+            svc.computeSessionMetrics({
+              session: sess,
+              projectName: projectNameMap.get(sess.projectId) ?? "Unknown",
+            }),
+          ),
+          { concurrency: 10 },
+        );
+
+        return paginateExtendedSessions(
+          allMetrics,
+          (a, b) => b.toolErrorCount - a.toolErrorCount,
+          data.cursor,
+        );
+      }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
+    ),
+  );
 
 export const getProjectDetail = createServerFn({ method: "GET" })
   .inputValidator((v: unknown) => v as { projectId: string })

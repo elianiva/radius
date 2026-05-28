@@ -1,4 +1,4 @@
-
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -21,8 +21,8 @@ import {
   Line,
   LineChart,
 } from "recharts";
-import { useState } from "react";
-import type { HealthMetrics, ToolMetrics, ExtendedSession } from "./types";
+import { useQuery } from "@tanstack/react-query";
+import type { HealthMetrics, ToolMetrics, ExtendedSession, PaginatedSessions } from "./types";
 import {
   AlertTriangle,
   Wrench,
@@ -34,7 +34,13 @@ import {
 } from "lucide-react";
 import { formatCost, formatTokens, formatDuration } from "~/lib/utils";
 import { Badge } from "~/components/ui/badge";
-import { Link } from "@tanstack/react-router";
+import { DataTable, type Column } from "~/components/ui/data-table";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
+import {
+  getExpensiveSessions,
+  getHighTokenSessions,
+  getErrorProneSessions,
+} from "~/server/rpc/dashboard";
 
 interface HealthProps {
   metrics: HealthMetrics;
@@ -67,12 +73,8 @@ function SummaryBar({ metrics }: { metrics: HealthMetrics }) {
       highlight: metrics.totalToolErrors > 0,
     },
     {
-      label: "Avg Cost/Session",
-      value: formatCost(
-        metrics.totalSessions > 0
-          ? metrics.expensiveSessions.reduce((s, e) => s + e.totalCost, 0) / metrics.totalSessions
-          : 0,
-      ),
+      label: "Total Cost",
+      value: "—",
       icon: DollarSign,
     },
   ];
@@ -155,7 +157,9 @@ function ErrorTrendChart({ data }: { data: HealthMetrics["errorTrend"] }) {
                         {name === "errorRate" ? "Error Rate" : "Sessions"}
                       </span>
                       <span className="text-muted-foreground">
-                        {name === "errorRate" ? `${(value as number * 100).toFixed(1)}%` : `${value}`}
+                        {name === "errorRate"
+                          ? `${(value as number * 100).toFixed(1)}%`
+                          : `${value}`}
                       </span>
                     </div>
                   )}
@@ -235,7 +239,7 @@ function ErrorRateByProject({ data }: { data: HealthMetrics["errorRateByProject"
   );
 }
 
-// ─── Most Failing Tools ────────────────────────────────────
+// ─── Failing Tools ─────────────────────────────────────────
 
 function ToolErrorBreakdown({
   mostFailingTools,
@@ -335,72 +339,196 @@ function ToolErrorBreakdown({
   );
 }
 
-// ─── Top Lists ─────────────────────────────────────────────
+// ─── Session Tables ────────────────────────────────────────
 
-function TopSessionsList({
-  title,
-  description,
-  icon: Icon,
-  sessions,
-  formatValue,
-  valueLabel,
-}: {
-  title: string;
-  description: string;
-  icon: React.FC<{ className?: string }>;
-  sessions: ExtendedSession[];
-  formatValue: (s: ExtendedSession) => string;
-  valueLabel: string;
-}) {
+const sessionColumns: Column<ExtendedSession>[] = [
+  {
+    id: "title",
+    header: "Title",
+    accessor: (s) => (
+      <span className="line-clamp-1 font-medium">{s.title ?? "(untitled)"}</span>
+    ),
+    className: "max-w-56",
+  },
+  {
+    id: "project",
+    header: "Project",
+    accessor: (s) => (
+      <Badge variant="secondary" className="text-[10px]">
+        {s.projectName}
+      </Badge>
+    ),
+  },
+  {
+    id: "duration",
+    header: "Duration",
+    headerClassName: "text-right",
+    className: "text-right font-mono tabular-nums",
+    accessor: (s) => formatDuration(s.duration),
+    sortKey: (s) => s.duration,
+  },
+  {
+    id: "messages",
+    header: "Msgs",
+    headerClassName: "text-right",
+    className: "text-right font-mono tabular-nums",
+    accessor: (s) => String(s.messageCount),
+    sortKey: (s) => s.messageCount,
+  },
+  {
+    id: "tokens",
+    header: "Tokens",
+    headerClassName: "text-right",
+    className: "text-right font-mono tabular-nums text-muted-foreground",
+    accessor: (s) => formatTokens(s.totalTokens),
+    sortKey: (s) => s.totalTokens,
+  },
+];
+
+const expensiveColumns: Column<ExtendedSession>[] = [
+  ...sessionColumns,
+  {
+    id: "cost",
+    header: "Cost",
+    headerClassName: "text-right",
+    className: "text-right font-mono tabular-nums font-medium",
+    accessor: (s) => formatCost(s.totalCost),
+    sortKey: (s) => s.totalCost,
+  },
+];
+
+const highTokenColumns: Column<ExtendedSession>[] = [
+  ...sessionColumns,
+  {
+    id: "tokens-value",
+    header: "Tokens",
+    headerClassName: "text-right",
+    className: "text-right font-mono tabular-nums font-medium",
+    accessor: (s) => formatTokens(s.totalTokens),
+    sortKey: (s) => s.totalTokens,
+  },
+];
+
+const errorProneColumns: Column<ExtendedSession>[] = [
+  ...sessionColumns,
+  {
+    id: "errors",
+    header: "Errors",
+    headerClassName: "text-right",
+    className: "text-right font-mono tabular-nums font-medium",
+    accessor: (s) =>
+      s.toolErrorCount > 0 ? (
+        <span className="text-destructive">{s.toolErrorCount}</span>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
+    sortKey: (s) => s.toolErrorCount,
+  },
+];
+
+type TabKey = "expensive" | "tokens" | "errors";
+
+interface SessionTableCardProps {
+  tab: TabKey;
+}
+
+function SessionTableCard({ tab }: SessionTableCardProps) {
+  const [cursorStack, setCursorStack] = useState<(string | undefined)[]>([undefined]);
+  const [cursorIndex, setCursorIndex] = useState(0);
+  const currentCursor = cursorStack[cursorIndex];
+
+  const queryKey = tab === "expensive" ? "expensive-sessions" : tab === "tokens" ? "high-token-sessions" : "error-prone-sessions";
+
+  const queryFn = {
+    expensive: getExpensiveSessions,
+    tokens: getHighTokenSessions,
+    errors: getErrorProneSessions,
+  }[tab];
+
+  const { data, isFetching } = useQuery<PaginatedSessions>({
+    queryKey: [queryKey, currentCursor],
+    queryFn: () => queryFn({ data: { cursor: currentCursor } }),
+    staleTime: 60_000,
+  });
+
+  const columns = {
+    expensive: expensiveColumns,
+    tokens: highTokenColumns,
+    errors: errorProneColumns,
+  }[tab];
+
+  const totalPages = data?.totalPages ?? 1;
+  const currentPage = data?.currentPage ?? 1;
+  const items = data?.items ?? [];
+  const nextCursor = data?.nextCursor;
+
+  const goNext = () => {
+    if (!nextCursor) return;
+    const newIndex = cursorIndex + 1;
+    const newStack = cursorStack.slice(0, newIndex);
+    newStack.push(nextCursor);
+    setCursorStack(newStack);
+    setCursorIndex(newIndex);
+  };
+
+  const goPrev = () => {
+    if (cursorIndex <= 0) return;
+    setCursorIndex(cursorIndex - 1);
+  };
+
   return (
-    <Card className="flex flex-col">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Icon className="size-3.5 text-muted-foreground" />
-          {title}
-        </CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex-1">
-        {sessions.length === 0 ? (
-          <p className="flex h-full items-center justify-center text-xs text-muted-foreground">
-            None found
-          </p>
-        ) : (
-          <div className="space-y-px">
-            {sessions.map((s, i) => (
-              <Link
-                key={s.id}
-                to="/sessions/$sessionId"
-                params={{ sessionId: s.id }}
-                className="group grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded px-2 py-1.5 text-xs transition-colors hover:bg-muted/50"
-              >
-                <span className="flex size-4 shrink-0 items-center justify-center rounded bg-muted text-[10px] font-medium text-muted-foreground">
-                  {i + 1}
-                </span>
-                <div className="min-w-0">
-                  <span className="line-clamp-1 font-medium">{s.title ?? "(untitled)"}</span>
-                  <div className="flex gap-2 text-muted-foreground">
-                    <Badge variant="secondary" className="text-[10px]">
-                      {s.projectName}
-                    </Badge>
-                    <span>{formatDuration(s.duration)}</span>
-                  </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <div className="font-mono font-medium tabular-nums text-foreground">
-                    {formatValue(s)}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground">{valueLabel}</div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <>
+      <DataTable
+        columns={columns}
+        data={items}
+        page={currentPage}
+        totalPages={totalPages}
+        onPageChange={(p) => (p > currentPage ? goNext() : goPrev())}
+        getRowLink={(s) => `/sessions/${s.id}`}
+        loading={isFetching}
+      />
+    </>
   );
 }
+
+const tabConfigs = [
+  { key: "expensive" as TabKey, label: "Most Expensive", icon: DollarSign },
+  { key: "tokens" as TabKey, label: "Most Tokens", icon: Coins },
+  { key: "errors" as TabKey, label: "Most Error-Prone", icon: Bug },
+];
+
+function SessionTables() {
+  const [activeTab, setActiveTab] = useState<TabKey>("expensive");
+
+  return (
+    <Tabs
+      value={activeTab}
+      onValueChange={(v: string) => setActiveTab(v as TabKey)}
+    >
+      <Card>
+        <CardHeader className="pb-0">
+          <TabsList>
+            {tabConfigs.map(({ key, label, icon: Icon }) => (
+              <TabsTrigger key={key} value={key}>
+                <Icon className="size-3.5" />
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </CardHeader>
+        <CardContent className="pt-1">
+          {tabConfigs.map(({ key }) => (
+            <TabsContent key={key} value={key} className="block">
+              <SessionTableCard tab={key} />
+            </TabsContent>
+          ))}
+        </CardContent>
+      </Card>
+    </Tabs>
+  );
+}
+
+// ─── Main Dashboard ────────────────────────────────────────
 
 export function HealthDashboard({ metrics }: HealthProps) {
   return (
@@ -417,32 +545,7 @@ export function HealthDashboard({ metrics }: HealthProps) {
         failingToolsByProject={metrics.failingToolsByProject}
       />
 
-      <div className="flex flex-col gap-4">
-        <TopSessionsList
-          title="Most Expensive"
-          description="Highest cost sessions"
-          icon={DollarSign}
-          sessions={metrics.expensiveSessions}
-          formatValue={(s) => formatCost(s.totalCost)}
-          valueLabel="cost"
-        />
-        <TopSessionsList
-          title="Most Tokens"
-          description="Highest token usage"
-          icon={Coins}
-          sessions={metrics.highTokenSessions}
-          formatValue={(s) => formatTokens(s.totalTokens)}
-          valueLabel="tokens"
-        />
-        <TopSessionsList
-          title="Most Error-Prone"
-          description="Most tool errors per session"
-          icon={Bug}
-          sessions={metrics.errorProneSessions}
-          formatValue={(s) => String(s.toolErrorCount)}
-          valueLabel="errors"
-        />
-      </div>
+      <SessionTables />
     </div>
   );
 }
