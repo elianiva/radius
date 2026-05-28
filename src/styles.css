@@ -89,6 +89,12 @@ body {
   --sidebar-ring: oklch(0.542 0.034 322.5);
 }
 
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
 @theme inline {
   --font-sans: "Oxanium Variable", sans-serif;
   --font-heading: "Space Grotesk Variable", sans-serif;

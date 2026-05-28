@@ -7,6 +7,7 @@ import { Loader2, Sparkles, BarChart3, Folder, List, HeartPulse } from "lucide-r
 import { importPiSessions } from "~/server/rpc/sessions";
 import { getDashboardMetrics } from "~/server/rpc/dashboard";
 import type { IngestProgress } from "~/features/sessions/adapters/pi";
+import { OverviewLoading } from "~/features/dashboard/loading";
 
 export const Route = createFileRoute("/_dashboard")({
   component: DashboardLayout,
@@ -16,24 +17,59 @@ function Digest({ progress }: { progress: IngestProgress }) {
   switch (progress.stage) {
     case "finding-sessions":
       return (
-        <span className="flex items-center gap-2">
-          <Loader2 className="size-4 animate-spin" />
-          Finding sessions…
-        </span>
+        <div className="flex flex-col items-center gap-3">
+          <div className="relative">
+            <Loader2 className="size-8 animate-spin text-muted-foreground" />
+          </div>
+          <div className="space-y-1 text-center">
+            <p className="text-sm font-medium">Scanning for sessions</p>
+            <p className="text-xs text-muted-foreground">Looking through your pi data…</p>
+          </div>
+          <div className="h-1 w-48 overflow-hidden rounded-full bg-muted">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-foreground/20" />
+          </div>
+        </div>
       );
     case "importing-session":
+      const pct = Math.round((progress.sessionIndex / progress.totalSessions) * 100);
       return (
-        <span className="flex items-center gap-2">
-          <Loader2 className="size-4 animate-spin" />
-          Importing {progress.sessionIndex}/{progress.totalSessions}: {progress.project}
-        </span>
+        <div className="flex flex-col items-center gap-3">
+          <div className="relative">
+            <Loader2 className="size-8 animate-spin text-muted-foreground" />
+            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums text-muted-foreground">
+              {pct}
+            </span>
+          </div>
+          <div className="space-y-1 text-center">
+            <p className="text-sm font-medium">Importing {progress.project}</p>
+            <p className="text-xs text-muted-foreground">
+              Session {progress.sessionIndex} of {progress.totalSessions}
+            </p>
+          </div>
+          <div className="h-1 w-48 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-foreground/20 transition-all duration-500"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
       );
     case "done":
       return (
-        <span className="flex items-center gap-2">
-          <Sparkles className="size-4" />
-          Imported {progress.result.sessions} sessions
-        </span>
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-in zoom-in fade-in duration-300">
+            <Sparkles className="size-8 text-primary" />
+          </div>
+          <div className="space-y-1 text-center">
+            <p className="text-sm font-medium">Import complete</p>
+            <p className="text-xs text-muted-foreground">
+              {progress.result.sessions} sessions imported
+            </p>
+          </div>
+          <div className="h-1 w-48 overflow-hidden rounded-full bg-muted">
+            <div className="h-full w-full rounded-full bg-primary" />
+          </div>
+        </div>
       );
   }
 }
@@ -105,7 +141,7 @@ function DashboardLayout() {
               </Link>
             ))}
           </nav>
-          <Suspense fallback={<div>Loading…</div>}>
+          <Suspense fallback={<OverviewLoading />}>
             <Outlet />
           </Suspense>
         </>

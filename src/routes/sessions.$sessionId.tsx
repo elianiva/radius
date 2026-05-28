@@ -35,10 +35,10 @@ function EventRow({ event }: { event: TimelineEvent }) {
 
   const contentPreview = Array.isArray(parsed.content)
     ? (parsed.content as { type: string; text?: string }[])
-        .filter((c) => c.type === "text" && c.text)
-        .map((c) => c.text!)
-        .join(" ")
-        .slice(0, 120)
+      .filter((c) => c.type === "text" && c.text)
+      .map((c) => c.text!)
+      .join(" ")
+      .slice(0, 120)
     : typeof parsed.content === "string"
       ? parsed.content.slice(0, 120)
       : null;
@@ -121,7 +121,7 @@ function SessionDetail() {
       <div className="flex items-center gap-4">
         <Link
           to="/sessions"
-          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted/30"
+          className="inline-flex items-center gap-1.5 border px-3 py-1.5 text-sm font-medium hover:bg-muted/30"
         >
           <ArrowLeft className="size-4" />
           Back

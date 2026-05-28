@@ -175,10 +175,10 @@ function ErrorRateByProject({ data }: { data: HealthMetrics["errorRateByProject"
             return (
               <div
                 key={d.project}
-                className="relative flex items-center gap-3 rounded-md px-2 py-1.5"
+                className="relative flex items-center gap-3 px-2 py-1.5"
               >
                 <span
-                  className="absolute inset-y-0 left-0 rounded-md opacity-10"
+                  className="absolute inset-y-0 left-0 opacity-10"
                   style={{
                     width: `${(d.errorRate / maxRate) * 100}%`,
                     backgroundColor: color,

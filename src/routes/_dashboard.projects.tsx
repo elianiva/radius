@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { getDashboardMetrics, getProjectDetail } from "~/server/rpc/dashboard";
 import { Projects } from "~/features/dashboard/projects";
 import { ProjectDetailView } from "~/features/dashboard/project-detail";
+import { ProjectsLoading } from "~/features/dashboard/loading";
 
 import type { ProjectDetail } from "~/features/dashboard/types";
 
@@ -30,10 +31,10 @@ function ProjectsRoute() {
 
   if (selectedProjectId && projectDetail) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 animate-in fade-in duration-300">
         <button
           onClick={() => setSelectedProjectId(null)}
-          className="inline-flex w-fit items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted/30"
+          className="inline-flex w-fit items-center gap-1.5 border px-3 py-1.5 text-sm font-medium hover:bg-muted/30"
         >
           <ArrowLeft className="size-4" />
           Back to projects
@@ -43,5 +44,9 @@ function ProjectsRoute() {
     );
   }
 
-  return <Projects projects={metrics.projects} onSelectProject={setSelectedProjectId} />;
+  return (
+    <Suspense fallback={<ProjectsLoading />}>
+      <Projects projects={metrics.projects} onSelectProject={setSelectedProjectId} />
+    </Suspense>
+  );
 }

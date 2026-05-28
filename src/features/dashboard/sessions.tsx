@@ -1,27 +1,114 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
-import { Skeleton } from "~/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
-import { getSessionsMetrics } from "~/server/rpc/dashboard";
+import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { getSessionsList } from "~/server/rpc/dashboard";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { Clock, MessageSquare, AlertTriangle, Coins, Table2, Grid3x3 } from "lucide-react";
 import { formatCost, formatTokens, formatDuration } from "~/lib/utils";
+import { SessionsTableLoading } from "./loading";
+import { DataTable, type Column } from "~/components/ui/data-table";
+import type { ExtendedSession } from "./types";
 
-type SortKey = "createdAt" | "duration" | "totalCost" | "messageCount";
+type SortKey = "createdAt" | "duration" | "totalCost" | "messageCount" | "totalTokens" | "toolErrorCount";
+
+const SORT_DIRS: Record<SortKey, { sortBy: string; sortDir: "asc" | "desc" }> = {
+  createdAt: { sortBy: "createdAt", sortDir: "desc" },
+  duration: { sortBy: "duration", sortDir: "desc" },
+  totalCost: { sortBy: "totalCost", sortDir: "desc" },
+  messageCount: { sortBy: "messageCount", sortDir: "desc" },
+  totalTokens: { sortBy: "totalTokens", sortDir: "desc" },
+  toolErrorCount: { sortBy: "toolErrorCount", sortDir: "desc" },
+};
+
+const sessionColumns: Column<ExtendedSession>[] = [
+  {
+    id: "title",
+    header: "Title",
+    accessor: (s) => <span className="line-clamp-1 font-medium max-w-48">{s.title ?? "(untitled)"}</span>,
+  },
+  {
+    id: "createdAt",
+    header: "Date",
+    accessor: (s) => (
+      <span className="font-mono text-muted-foreground">
+        {new Date(s.createdAt).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+        })}
+      </span>
+    ),
+    sortKey: (s) => s.createdAt,
+  },
+  {
+    id: "duration",
+    header: "Duration",
+    headerClassName: "text-right",
+    className: "text-right font-mono tabular-nums",
+    accessor: (s) => formatDuration(s.duration),
+    sortKey: (s) => s.duration,
+  },
+  {
+    id: "totalCost",
+    header: "Cost",
+    headerClassName: "text-right",
+    className: "text-right font-mono tabular-nums",
+    accessor: (s) => formatCost(s.totalCost),
+    sortKey: (s) => s.totalCost,
+  },
+  {
+    id: "messageCount",
+    header: "Messages",
+    headerClassName: "text-right",
+    className: "text-right font-mono tabular-nums",
+    accessor: (s) => String(s.messageCount),
+    sortKey: (s) => s.messageCount,
+  },
+  {
+    id: "totalTokens",
+    header: "Tokens",
+    headerClassName: "text-right",
+    className: "text-right font-mono tabular-nums text-muted-foreground",
+    accessor: (s) => formatTokens(s.totalTokens),
+    sortKey: (s) => s.totalTokens,
+  },
+  {
+    id: "models",
+    header: "Models",
+    accessor: (s) => (
+      <div className="flex flex-wrap gap-1">
+        {s.models.slice(0, 3).map((m) => (
+          <Badge key={m} variant="secondary" className="text-[10px]">
+            {m}
+          </Badge>
+        ))}
+        {s.models.length > 3 && (
+          <Badge variant="outline" className="text-[10px]">
+            +{s.models.length - 3}
+          </Badge>
+        )}
+      </div>
+    ),
+  },
+  {
+    id: "toolErrorCount",
+    header: "Errors",
+    headerClassName: "text-right",
+    className: "text-right font-mono tabular-nums",
+    accessor: (s) =>
+      s.toolErrorCount > 0 ? (
+        <span className="text-destructive">{s.toolErrorCount}</span>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
+    sortKey: (s) => s.toolErrorCount,
+  },
+];
 
 export function Sessions() {
   return (
-    <Suspense
-      fallback={
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Skeleton className="h-48" />
-          <Skeleton className="h-48" />
-          <Skeleton className="h-48" />
-        </div>
-      }
-    >
+    <Suspense fallback={<SessionsTableLoading rows={10} />}>
       <SessionsContent />
     </Suspense>
   );
@@ -30,28 +117,63 @@ export function Sessions() {
 function SessionsContent() {
   const router = useRouter();
   const [view, setView] = useState<"grid" | "table">("table");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [cursorStack, setCursorStack] = useState<(string | undefined)[]>([undefined]);
+  const [cursorIndex, setCursorIndex] = useState(0);
+  const [sortBy, setSortBy] = useState<SortKey>("createdAt");
 
-  const { data } = useSuspenseQuery({
-    queryKey: ["sessions-metrics"],
-    queryFn: () => getSessionsMetrics({ data: {} }),
+  const currentCursor = cursorStack[cursorIndex];
+  const sort = SORT_DIRS[sortBy];
+
+  const { data, isFetching } = useQuery({
+    queryKey: ["sessions-list", searchQuery, sort.sortBy, sort.sortDir, currentCursor],
+    queryFn: () =>
+      getSessionsList({
+        data: {
+          search: searchQuery || undefined,
+          sortBy: sort.sortBy,
+          sortDir: sort.sortDir,
+          cursor: currentCursor,
+        },
+      }),
     staleTime: 60_000,
+    placeholderData: (prev) => prev,
   });
 
-  const sessions = (data?.items ?? []) as Array<{
-    id: string;
-    title: string | null;
-    duration: number;
-    createdAt: number;
-    totalCost: number;
-    totalTokens: number;
-    messageCount: number;
-    toolErrorCount: number;
-    models: string[];
-  }>;
+  const items = (data?.items ?? []) as ExtendedSession[];
+  const totalPages = data?.totalPages ?? 1;
+  const currentPage = data?.currentPage ?? 1;
+  const nextCursor = data?.nextCursor;
+
+  const goNext = useCallback(() => {
+    if (!nextCursor) return;
+    const newIndex = cursorIndex + 1;
+    const newStack = cursorStack.slice(0, newIndex);
+    newStack.push(nextCursor);
+    setCursorStack(newStack);
+    setCursorIndex(newIndex);
+  }, [nextCursor, cursorIndex, cursorStack]);
+
+  const goPrev = useCallback(() => {
+    if (cursorIndex <= 0) return;
+    setCursorIndex(cursorIndex - 1);
+  }, [cursorIndex]);
+
+  const handleSort = useCallback((key: string) => {
+    setSortBy(key as SortKey);
+    setCursorStack([undefined]);
+    setCursorIndex(0);
+  }, []);
+
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    setCursorStack([undefined]);
+    setCursorIndex(0);
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
-      {sessions.length === 0 ? (
+      {items.length === 0 && !isFetching && !searchQuery ? (
         <Card>
           <CardContent className="flex items-center justify-center py-12 text-muted-foreground">
             No sessions yet. Import sessions from the dashboard.
@@ -59,157 +181,48 @@ function SessionsContent() {
         </Card>
       ) : (
         <>
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{sessions.length} sessions</p>
-            <Tabs value={view} onValueChange={(v: string) => setView(v as "grid" | "table")}>
-              <TabsList>
-                <TabsTrigger value="table">
-                  <Table2 className="size-3.5" />
-                  Table
-                </TabsTrigger>
-                <TabsTrigger value="grid">
-                  <Grid3x3 className="size-3.5" />
-                  Grid
-                </TabsTrigger>
-              </TabsList>
+          <div className="flex items-start justify-between">
+            <p className="pt-2 text-sm text-muted-foreground">
+              {isFetching ? "…" : `${data?.items?.length ?? 0} sessions`}
+            </p>
 
-              <TabsContent value="table">
-                <SessionTable sessions={sessions} router={router} />
-              </TabsContent>
-
-              <TabsContent value="grid">
-                <SessionGrid sessions={sessions} router={router} />
-              </TabsContent>
-            </Tabs>
+            <div className="flex items-center gap-2">
+              <Tabs value={view} onValueChange={(v: string) => setView(v as "grid" | "table")} className="min-w-0">
+                <TabsList>
+                  <TabsTrigger value="table">
+                    <Table2 className="size-3.5" />
+                    Table
+                  </TabsTrigger>
+                  <TabsTrigger value="grid">
+                    <Grid3x3 className="size-3.5" />
+                    Grid
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
+
+          {view === "table" ? (
+            <DataTable
+              columns={sessionColumns}
+              data={items}
+              page={currentPage}
+              totalPages={totalPages}
+              onPageChange={(p) => (p > currentPage ? goNext() : goPrev())}
+              sortKey={sort.sortBy}
+              sortDir={sort.sortDir}
+              onSort={handleSort}
+              searchQuery={searchQuery}
+              onSearchChange={handleSearch}
+              searchPlaceholder="Search by title, project, model…"
+              getRowLink={(s) => `/sessions/${s.id}`}
+              loading={isFetching}
+            />
+          ) : (
+            <SessionGrid sessions={items} router={router} />
+          )}
         </>
       )}
-    </div>
-  );
-}
-
-function SessionTable({
-  sessions,
-  router,
-}: {
-  sessions: Array<{
-    id: string;
-    title: string | null;
-    duration: number;
-    createdAt: number;
-    totalCost: number;
-    totalTokens: number;
-    messageCount: number;
-    toolErrorCount: number;
-    models: string[];
-  }>;
-  router: ReturnType<typeof useRouter>;
-}) {
-  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-
-  const sorted = useMemo(() => {
-    const copy = [...sessions];
-    copy.sort((a, b) => {
-      const va = a[sortKey];
-      const vb = b[sortKey];
-      const cmp = va > vb ? 1 : va < vb ? -1 : 0;
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return copy;
-  }, [sessions, sortKey, sortDir]);
-
-  const toggle = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("desc");
-    }
-  };
-
-  const SortHeader = ({ label, sort }: { label: string; sort: SortKey }) => (
-    <th
-      className="cursor-pointer px-3 py-2 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
-      onClick={() => toggle(sort)}
-    >
-      {label}
-      {sortKey === sort && (
-        <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>
-      )}
-    </th>
-  );
-
-  return (
-    <div className="overflow-x-auto rounded border">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b bg-muted/50">
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-              Title
-            </th>
-            <SortHeader label="Date" sort="createdAt" />
-            <SortHeader label="Duration" sort="duration" />
-            <SortHeader label="Cost" sort="totalCost" />
-            <SortHeader label="Messages" sort="messageCount" />
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-              Tokens
-            </th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-              Models
-            </th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-              Errors
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((session) => (
-            <tr
-              key={session.id}
-              className="cursor-pointer border-b last:border-0 hover:bg-muted/30"
-              onClick={() =>
-                router.navigate({
-                  to: "/sessions/$sessionId",
-                  params: { sessionId: session.id },
-                })
-              }
-            >
-              <td className="max-w-48 truncate px-3 py-2 font-medium">
-                {session.title ?? "(untitled)"}
-              </td>
-              <td className="px-3 py-2 font-mono text-muted-foreground">
-                {new Date(session.createdAt).toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                })}
-              </td>
-              <td className="px-3 py-2 font-mono">{formatDuration(session.duration)}</td>
-              <td className="px-3 py-2 font-mono">{formatCost(session.totalCost)}</td>
-              <td className="px-3 py-2 font-mono">{session.messageCount}</td>
-              <td className="px-3 py-2 font-mono text-muted-foreground">
-                {formatTokens(session.totalTokens)}
-              </td>
-              <td className="px-3 py-2">
-                <div className="flex flex-wrap gap-1">
-                  {session.models.map((m) => (
-                    <Badge key={m} variant="secondary" className="text-[10px]">
-                      {m}
-                    </Badge>
-                  ))}
-                </div>
-              </td>
-              <td className="px-3 py-2">
-                {session.toolErrorCount > 0 ? (
-                  <span className="font-mono text-destructive">{session.toolErrorCount}</span>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
@@ -218,17 +231,7 @@ function SessionGrid({
   sessions,
   router,
 }: {
-  sessions: Array<{
-    id: string;
-    title: string | null;
-    duration: number;
-    createdAt: number;
-    totalCost: number;
-    totalTokens: number;
-    messageCount: number;
-    toolErrorCount: number;
-    models: string[];
-  }>;
+  sessions: ExtendedSession[];
   router: ReturnType<typeof useRouter>;
 }) {
   return (
@@ -249,11 +252,16 @@ function SessionGrid({
               {session.title ?? "(untitled)"}
             </CardTitle>
             <CardDescription className="flex flex-wrap gap-1">
-              {session.models.map((m) => (
+              {session.models.slice(0, 3).map((m) => (
                 <Badge key={m} variant="secondary" className="text-[10px]">
                   {m}
                 </Badge>
               ))}
+              {session.models.length > 3 && (
+                <Badge variant="outline" className="text-[10px]">
+                  +{session.models.length - 3}
+                </Badge>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>

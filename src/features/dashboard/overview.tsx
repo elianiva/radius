@@ -80,7 +80,7 @@ function CustomLegend({ data }: { data: { model: string; fill: string }[] }) {
       <span className="mb-1 text-xs font-medium text-muted-foreground">Models</span>
       {top.map((entry) => (
         <div key={entry.model} className="flex items-center gap-2 text-xs">
-          <span className="size-2 shrink-0 rounded-sm" style={{ backgroundColor: entry.fill }} />
+          <span className="size-2 shrink-0" style={{ backgroundColor: entry.fill }} />
           <span>{entry.model}</span>
         </div>
       ))}
