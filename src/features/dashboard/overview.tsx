@@ -14,14 +14,26 @@ import {
   Legend,
   Pie,
   PieChart,
+  Cell,
   XAxis,
   YAxis,
 } from "recharts";
 import type { DashboardMetrics } from "./types";
 import { HeatmapGrid } from "~/components/ui/heatmap-grid";
 import { buildHeatmapWeeks } from "~/lib/heatmap";
-import { useMemo } from "react";
-import { DollarSign, MessageSquare, Coins, TrendingUp, CalendarDays } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Badge } from "~/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import {
+  DollarSign,
+  MessageSquare,
+  Coins,
+  TrendingUp,
+  CalendarDays,
+  AlertTriangle,
+  Brain,
+  StopCircle,
+} from "lucide-react";
 import { formatCost, formatTokens } from "~/lib/utils";
 
 const costChartConfig = {
@@ -35,12 +47,6 @@ const costChartConfig = {
   },
 } satisfies ChartConfig;
 
-const modelChartConfig = {
-  count: {
-    label: "Sessions",
-  },
-} satisfies ChartConfig;
-
 const COLORS = [
   "var(--chart-1)",
   "var(--chart-2)",
@@ -48,6 +54,22 @@ const COLORS = [
   "var(--chart-4)",
   "var(--chart-5)",
 ];
+
+const THINKING_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-3)",
+  "var(--chart-5)",
+  "var(--chart-2)",
+  "var(--chart-4)",
+];
+
+const STOP_REASON_LABELS: Record<string, string> = {
+  toolUse: "Tool Use",
+  endTurn: "End Turn",
+  abort: "Aborted",
+  maxTokens: "Max Tokens",
+  stop: "Stop",
+};
 
 function CustomLegend({ data }: { data: { model: string; fill: string }[] }) {
   const top = data.slice(0, 5);
@@ -134,53 +156,114 @@ function SummaryCards({ metrics }: OverviewProps) {
   }[];
 
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      {cards.map(({ description, value, icon: Icon, format }) => (
-        <Card key={description}>
-          <CardHeader>
-            <CardDescription>{description}</CardDescription>
-            <CardTitle className="flex items-center gap-2 text-2xl font-bold tabular-nums">
-              <Icon className="size-4 text-muted-foreground" />
-              {format(value)}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {cards.map(({ description, value, icon: Icon, format }) => (
+          <Card key={description}>
+            <CardHeader>
+              <CardDescription>{description}</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-2xl font-bold tabular-nums">
+                <Icon className="size-4 text-muted-foreground" />
+                {format(value)}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary" className="flex items-center gap-1.5 text-xs">
+          <Brain className="size-3" />
+          Most used: {metrics.mostUsedModel.name}
+        </Badge>
+        <Badge
+          variant={metrics.errorRate > 0.2 ? "destructive" : "secondary"}
+          className="flex items-center gap-1.5 text-xs"
+        >
+          <AlertTriangle className="size-3" />
+          Error rate: {(metrics.errorRate * 100).toFixed(1)}%
+        </Badge>
+      </div>
+    </>
   );
 }
 
+function aggregateWeeks(data: DashboardMetrics["costOverTime"]) {
+  const weeks = new Map<string, { start: string; cost: number; sessions: number }>();
+
+  for (const d of data) {
+    const date = new Date(d.date + "T00:00:00Z");
+    const dayOfWeek = date.getUTCDay();
+    const monday = new Date(date);
+    monday.setUTCDate(date.getUTCDate() - ((dayOfWeek + 6) % 7));
+    const key = monday.toISOString().split("T")[0]!;
+
+    const existing = weeks.get(key) ?? { start: key, cost: 0, sessions: 0 };
+    existing.cost += d.cost;
+    existing.sessions += d.sessions;
+    weeks.set(key, existing);
+  }
+
+  return Array.from(weeks.values()).sort((a, b) => a.start.localeCompare(b.start));
+}
+
 function CostOverTimeChart({ data }: { data: DashboardMetrics["costOverTime"] }) {
+  const [view, setView] = useState<"daily" | "weekly">("daily");
+
+  const chartData = useMemo(() => {
+    if (view === "weekly") return aggregateWeeks(data);
+    return data;
+  }, [data, view]);
+
+  const dateFormatter = useMemo(() => {
+    if (view === "weekly") {
+      return (v: string) => {
+        const d = new Date(v + "T00:00:00Z");
+        return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      };
+    }
+    return (v: string) => {
+      const d = new Date(v);
+      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    };
+  }, [view]);
+
   return (
     <Card className="lg:col-span-2">
-      <CardHeader>
-        <CardTitle>Cost Over Time</CardTitle>
-        <CardDescription>Daily cost and session count</CardDescription>
+      <CardHeader className="flex-row items-center justify-between">
+        <div>
+          <CardTitle>Cost Over Time</CardTitle>
+          <CardDescription>Daily cost and session count</CardDescription>
+        </div>
+        <Tabs value={view} onValueChange={(v: string) => setView(v as "daily" | "weekly")}>
+          <TabsList>
+            <TabsTrigger value="daily">Daily</TabsTrigger>
+            <TabsTrigger value="weekly">Weekly</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </CardHeader>
       <CardContent>
         <ChartContainer config={costChartConfig} className="h-90 w-full">
-          <AreaChart data={data}>
+          <AreaChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
             <XAxis
-              dataKey="date"
+              dataKey={view === "weekly" ? "start" : "date"}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(v) => {
-                const d = new Date(v);
-                return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-              }}
+              tickFormatter={dateFormatter}
             />
             <YAxis tickLine={false} axisLine={false} tickFormatter={(v) => `$${v.toFixed(2)}`} />
             <ChartTooltip
               content={
                 <ChartTooltipContent
-                  labelFormatter={(label) =>
-                    new Date(label).toLocaleDateString(undefined, {
+                  labelFormatter={(label) => {
+                    const d = new Date(view === "weekly" ? label + "T00:00:00Z" : label);
+                    return d.toLocaleDateString(undefined, {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
-                    })
-                  }
+                    });
+                  }}
                   formatter={(value, name) => (
                     <div className="flex items-center gap-2 font-mono">
                       <span className="text-foreground">
@@ -224,7 +307,7 @@ function ModelUsageChart({ data }: { data: DashboardMetrics["modelUsage"] }) {
         <CardDescription>Sessions per model</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={modelChartConfig} className="h-90 w-full">
+        <ChartContainer config={{}} className="h-90 w-full">
           <PieChart>
             <ChartTooltip
               content={
@@ -297,6 +380,94 @@ function TopProjectsChart({ data }: { data: DashboardMetrics["topProjects"] }) {
   );
 }
 
+function ThinkingLevelChart({ data }: { data: DashboardMetrics["thinkingLevels"] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Brain className="size-4 text-muted-foreground" />
+          Thinking Levels
+        </CardTitle>
+        <CardDescription>Distribution of thinking modes used</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={{}} className="h-50 w-full">
+          <BarChart data={data} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+            <XAxis type="number" tickLine={false} axisLine={false} />
+            <YAxis
+              type="category"
+              dataKey="level"
+              tickLine={false}
+              axisLine={false}
+              width={100}
+            />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  formatter={(value) => (
+                    <span className="font-mono">{value} sessions</span>
+                  )}
+                />
+              }
+            />
+            <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+              {data.map((_, i) => (
+                <Cell key={i} fill={THINKING_COLORS[i % THINKING_COLORS.length]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StopReasonsChart({ data }: { data: DashboardMetrics["stopReasons"] }) {
+  const total = data.reduce((sum, r) => sum + r.count, 0);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <StopCircle className="size-4 text-muted-foreground" />
+          Stop Reasons
+        </CardTitle>
+        <CardDescription>How sessions end</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {data.map((r, i) => {
+            const pct = total > 0 ? ((r.count / total) * 100).toFixed(0) : "0";
+            return (
+              <div key={r.reason}>
+                <div className="mb-1 flex items-center justify-between text-xs">
+                  <span>{STOP_REASON_LABELS[r.reason] ?? r.reason}</span>
+                  <span className="font-mono text-muted-foreground">
+                    {r.count} ({pct}%)
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${pct}%`,
+                      backgroundColor: COLORS[i % COLORS.length],
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+          {data.length === 0 && (
+            <p className="text-xs text-muted-foreground">No stop reason data</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function Overview({ metrics }: OverviewProps) {
   return (
     <div className="flex flex-col gap-4">
@@ -309,9 +480,12 @@ export function Overview({ metrics }: OverviewProps) {
 
       <TopProjectsChart data={metrics.topProjects} />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <ActivityHeatmap data={metrics.costOverTime} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ThinkingLevelChart data={metrics.thinkingLevels} />
+        <StopReasonsChart data={metrics.stopReasons} />
       </div>
+
+      <ActivityHeatmap data={metrics.costOverTime} />
     </div>
   );
 }

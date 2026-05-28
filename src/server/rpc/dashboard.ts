@@ -3,9 +3,9 @@ import { Effect, Layer } from "effect";
 
 import { AppRuntime } from "../app-runtime";
 import { Database } from "~/db/service";
-import { session, project } from "~/db/schema";
-import { desc } from "drizzle-orm";
-import { SessionService, type SessionMetrics } from "~/features/sessions/services/session";
+import { session, project, sessionEvent } from "~/db/schema";
+import { desc, eq } from "drizzle-orm";
+import { SessionService, SessionError, type SessionMetrics } from "~/features/sessions/services/session";
 import { PlatformLayer } from "../app-layer";
 
 export const getDashboardMetrics = createServerFn({ method: "GET" }).handler(() =>
@@ -96,13 +96,65 @@ export const getDashboardMetrics = createServerFn({ method: "GET" }).handler(() 
         .slice(0, 5)
         .map((p) => ({ name: p.name, sessionCount: p.sessionCount, cost: p.totalCost }));
 
+      // Thinking level distribution
+      const thinkingRows = yield* Effect.try({
+        try: () => db.select().from(sessionEvent).where(eq(sessionEvent.eventType, "thinking_change")).all(),
+        catch: (cause) => new SessionError({ cause, message: "Failed to get thinking level events" }),
+      });
+
+      const thinkingLevelCounts = new Map<string, number>();
+      for (const row of thinkingRows) {
+        let parsed: Record<string, unknown>;
+        try {
+          parsed = JSON.parse(row.data);
+        } catch {
+          parsed = {};
+        }
+        const level = (parsed.thinkingLevel ?? parsed.level ?? "off") as string;
+        thinkingLevelCounts.set(level, (thinkingLevelCounts.get(level) ?? 0) + 1);
+      }
+      const thinkingLevels = Array.from(thinkingLevelCounts.entries())
+        .map(([level, count]) => ({ level, count }))
+        .sort((a, b) => b.count - a.count);
+
+      // Stop reasons (aggregated across all sessions)
+      const stopReasonCounts = new Map<string, number>();
+      for (const s of allSessionMetrics) {
+        for (const [reason, count] of Object.entries(s.stopReasons)) {
+          stopReasonCounts.set(reason, (stopReasonCounts.get(reason) ?? 0) + count);
+        }
+      }
+      const stopReasons = Array.from(stopReasonCounts.entries())
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((a, b) => b.count - a.count);
+
+      // Error rate (sessions with tool errors / total)
+      const errorSessionCount = allSessionMetrics.filter((s) => s.toolErrorCount > 0).length;
+      const errorRate = allSessionMetrics.length > 0 ? errorSessionCount / allSessionMetrics.length : 0;
+
+      // Most used model overall
+      const globalModelCounts = new Map<string, number>();
+      for (const s of allSessionMetrics) {
+        for (const m of s.models) {
+          globalModelCounts.set(m, (globalModelCounts.get(m) ?? 0) + 1);
+        }
+      }
+      const mostUsedModelEntry = Array.from(globalModelCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+      const mostUsedModel = mostUsedModelEntry
+        ? { name: mostUsedModelEntry[0], count: mostUsedModelEntry[1] }
+        : { name: "—", count: 0 };
+
       return {
         totalSessions: allSessionMetrics.length,
         totalCost,
         avgCostPerSession: allSessionMetrics.length > 0 ? totalCost / allSessionMetrics.length : 0,
         totalTokens,
+        errorRate,
+        mostUsedModel,
         costOverTime,
         modelUsage,
+        thinkingLevels,
+        stopReasons,
         projects,
         topProjects,
       };
