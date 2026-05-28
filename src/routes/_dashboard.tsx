@@ -3,7 +3,7 @@ import { buttonVariants } from "~/components/ui/button";
 import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Loader2, Sparkles, BarChart3, Folder, List } from "lucide-react";
+import { Loader2, Sparkles, BarChart3, Folder, List, HeartPulse } from "lucide-react";
 import { importPiSessions } from "~/server/rpc/sessions";
 import { getDashboardMetrics } from "~/server/rpc/dashboard";
 import type { IngestProgress } from "~/features/sessions/adapters/pi";
@@ -65,6 +65,7 @@ function DashboardLayout() {
     { to: "/overview", label: "Overview", icon: BarChart3 },
     { to: "/projects", label: "Projects", icon: Folder },
     { to: "/sessions", label: "Sessions", icon: List },
+    { to: "/health", label: "Health", icon: HeartPulse },
   ] as const;
 
   return (

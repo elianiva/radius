@@ -15,6 +15,7 @@ import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessio
 import { Route as DashboardSessionsRouteImport } from './routes/_dashboard.sessions'
 import { Route as DashboardProjectsRouteImport } from './routes/_dashboard.projects'
 import { Route as DashboardOverviewRouteImport } from './routes/_dashboard.overview'
+import { Route as DashboardHealthRouteImport } from './routes/_dashboard.health'
 
 const DashboardRoute = DashboardRouteImport.update({
   id: '/_dashboard',
@@ -45,9 +46,15 @@ const DashboardOverviewRoute = DashboardOverviewRouteImport.update({
   path: '/overview',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardHealthRoute = DashboardHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => DashboardRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/health': typeof DashboardHealthRoute
   '/overview': typeof DashboardOverviewRoute
   '/projects': typeof DashboardProjectsRoute
   '/sessions': typeof DashboardSessionsRoute
@@ -55,6 +62,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/health': typeof DashboardHealthRoute
   '/overview': typeof DashboardOverviewRoute
   '/projects': typeof DashboardProjectsRoute
   '/sessions': typeof DashboardSessionsRoute
@@ -64,6 +72,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_dashboard': typeof DashboardRouteWithChildren
+  '/_dashboard/health': typeof DashboardHealthRoute
   '/_dashboard/overview': typeof DashboardOverviewRoute
   '/_dashboard/projects': typeof DashboardProjectsRoute
   '/_dashboard/sessions': typeof DashboardSessionsRoute
@@ -73,16 +82,24 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/health'
     | '/overview'
     | '/projects'
     | '/sessions'
     | '/sessions/$sessionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/overview' | '/projects' | '/sessions' | '/sessions/$sessionId'
+  to:
+    | '/'
+    | '/health'
+    | '/overview'
+    | '/projects'
+    | '/sessions'
+    | '/sessions/$sessionId'
   id:
     | '__root__'
     | '/'
     | '/_dashboard'
+    | '/_dashboard/health'
     | '/_dashboard/overview'
     | '/_dashboard/projects'
     | '/_dashboard/sessions'
@@ -139,16 +156,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOverviewRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/health': {
+      id: '/_dashboard/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof DashboardHealthRouteImport
+      parentRoute: typeof DashboardRoute
+    }
   }
 }
 
 interface DashboardRouteChildren {
+  DashboardHealthRoute: typeof DashboardHealthRoute
   DashboardOverviewRoute: typeof DashboardOverviewRoute
   DashboardProjectsRoute: typeof DashboardProjectsRoute
   DashboardSessionsRoute: typeof DashboardSessionsRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardHealthRoute: DashboardHealthRoute,
   DashboardOverviewRoute: DashboardOverviewRoute,
   DashboardProjectsRoute: DashboardProjectsRoute,
   DashboardSessionsRoute: DashboardSessionsRoute,

@@ -30,9 +30,10 @@ const chartConfig = {
 
 interface ProjectsProps {
   projects: ProjectMetrics[];
+  onSelectProject?: (projectId: string) => void;
 }
 
-export function Projects({ projects }: ProjectsProps) {
+export function Projects({ projects, onSelectProject }: ProjectsProps) {
   const sorted = [...projects].sort((a, b) => b.sessionCount - a.sessionCount);
 
   const barData = sorted.slice(0, 10).map((p) => ({
@@ -73,7 +74,11 @@ export function Projects({ projects }: ProjectsProps) {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {sorted.map((project) => (
-          <Card key={project.id}>
+          <Card
+            key={project.id}
+            className={onSelectProject ? "cursor-pointer transition-colors hover:bg-muted/50" : ""}
+            onClick={() => onSelectProject?.(project.id)}
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Folder className="size-4 text-muted-foreground" />

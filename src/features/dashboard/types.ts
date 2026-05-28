@@ -36,6 +36,75 @@ export interface MostUsedModel {
   count: number;
 }
 
+export interface ToolMetrics {
+  name: string;
+  callCount: number;
+  errorCount: number;
+  errorRate: number;
+}
+
+export interface CostOutlier {
+  sessionId: string;
+  projectName: string;
+  totalCost: number;
+  avgCostPerSession: number;
+  totalTokens: number;
+  models: string[];
+  title: string | null;
+}
+
+export interface ExtendedSession {
+  id: string;
+  projectName: string;
+  title: string | null;
+  duration: number;
+  totalCost: number;
+  totalTokens: number;
+  models: string[];
+  messageCount: number;
+  toolCallCount: number;
+  toolErrorCount: number;
+  createdAt: number;
+}
+
+export interface ErrorTrend {
+  date: string;
+  totalSessions: number;
+  errorSessions: number;
+  errorRate: number;
+}
+
+export interface HealthMetrics {
+  totalSessions: number;
+  totalToolCalls: number;
+  totalToolErrors: number;
+  globalErrorRate: number;
+  errorTrend: ErrorTrend[];
+  errorRateByProject: { project: string; errorRate: number; sessionCount: number }[];
+  mostFailingTools: ToolMetrics[];
+  failingToolsByProject: { project: string; tools: ToolMetrics[] }[];
+  expensiveSessions: ExtendedSession[];
+  highTokenSessions: ExtendedSession[];
+  errorProneSessions: ExtendedSession[];
+}
+
+export interface ProjectDetail {
+  project: ProjectMetrics;
+  sessions: {
+    id: string;
+    title: string | null;
+    createdAt: number;
+    duration: number;
+    messageCount: number;
+    totalCost: number;
+    totalTokens: number;
+    models: string[];
+    toolErrorCount: number;
+  }[];
+  modelUsage: ModelUsage[];
+  thinkingLevels: ThinkingLevelUsage[];
+}
+
 export interface DashboardMetrics {
   totalSessions: number;
   totalCost: number;
