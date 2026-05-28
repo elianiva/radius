@@ -39,28 +39,28 @@ Three tables. Harness-agnostic — all payload lives in `data` JSON.
 
 One row per unique directory path.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | text PK | Normalized filesystem path |
-| `name` | text | Display name from harness |
-| `created_at` | integer NOT NULL | |
-| `updated_at` | integer NOT NULL | |
+| Column       | Type             | Notes                      |
+| ------------ | ---------------- | -------------------------- |
+| `id`         | text PK          | Normalized filesystem path |
+| `name`       | text             | Display name from harness  |
+| `created_at` | integer NOT NULL |                            |
+| `updated_at` | integer NOT NULL |                            |
 
 ### `session`
 
 One row per conversation. Belongs to a project. `parent_session_id` handles forking/branching across both harnesses.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | text PK | Pi: uuidv7, Opencode: ses_xxx |
-| `project_id` | text FK NOT NULL | |
-| `parent_session_id` | text FK | Fork parent |
-| `title` | text | Derived at ingest — latest `session_info.name`, or first ~80 chars of first user message |
-| `directory` | text NOT NULL | CWD |
-| `agent` | text | `"pi"` / `"opencode"` |
-| `created_at` | integer NOT NULL | |
-| `updated_at` | integer NOT NULL | |
-| `archived_at` | integer | |
+| Column              | Type             | Notes                                                                                    |
+| ------------------- | ---------------- | ---------------------------------------------------------------------------------------- |
+| `id`                | text PK          | Pi: uuidv7, Opencode: ses_xxx                                                            |
+| `project_id`        | text FK NOT NULL |                                                                                          |
+| `parent_session_id` | text FK          | Fork parent                                                                              |
+| `title`             | text             | Derived at ingest — latest `session_info.name`, or first ~80 chars of first user message |
+| `directory`         | text NOT NULL    | CWD                                                                                      |
+| `agent`             | text             | `"pi"` / `"opencode"`                                                                    |
+| `created_at`        | integer NOT NULL |                                                                                          |
+| `updated_at`        | integer NOT NULL |                                                                                          |
+| `archived_at`       | integer          |                                                                                          |
 
 ### `event`
 
@@ -68,28 +68,28 @@ Conversation events only. One row per message exchange. Content blocks (text,
 tool calls, reasoning) are embedded in `data.content[]` for Pi or `data.parts[]`
 for Opencode.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | text PK | Pi: short hex, Opencode: msg_xxx |
-| `session_id` | text FK NOT NULL | |
-| `parent_id` | text FK | Pi tree structure, NULL for root |
-| `seq` | integer | Opencode only: step ordering within session |
-| `event_type` | text NOT NULL | `message`, `step_start`, `step_finish` |
-| `created_at` | integer NOT NULL | Unix ms |
-| `data` | text NOT NULL | Full JSON payload |
+| Column       | Type             | Notes                                       |
+| ------------ | ---------------- | ------------------------------------------- |
+| `id`         | text PK          | Pi: short hex, Opencode: msg_xxx            |
+| `session_id` | text FK NOT NULL |                                             |
+| `parent_id`  | text FK          | Pi tree structure, NULL for root            |
+| `seq`        | integer          | Opencode only: step ordering within session |
+| `event_type` | text NOT NULL    | `message`, `step_start`, `step_finish`      |
+| `created_at` | integer NOT NULL | Unix ms                                     |
+| `data`       | text NOT NULL    | Full JSON payload                           |
 
 ### `session_event`
 
 Session-level metadata mutations. Not conversation data — auxiliary signals
 for deeper analysis. Same id/session_id/data structure but no seq or parent_id.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | text PK | |
-| `session_id` | text FK NOT NULL | |
-| `event_type` | text NOT NULL | See below |
+| Column       | Type             | Notes                  |
+| ------------ | ---------------- | ---------------------- |
+| `id`         | text PK          |                        |
+| `session_id` | text FK NOT NULL |                        |
+| `event_type` | text NOT NULL    | See below              |
 | `created_at` | integer NOT NULL | Unix ms — ordering key |
-| `data` | text NOT NULL | Full JSON payload |
+| `data`       | text NOT NULL    | Full JSON payload      |
 
 Ordering is purely timestamp-based, unlike `event` which has tree structure
 via `parent_id` and `seq`. Unix ms resolution is sufficient — no two metadata
@@ -97,17 +97,17 @@ mutations happen within the same millisecond in practice.
 
 **event_type values**:
 
-| event_type | Source | data contents |
-|-----------|--------|---------------|
-| `model_change` | Pi | `{"provider","modelId"}` |
-| `thinking_change` | Pi | `{"thinkingLevel"}` |
-| `compaction` | Pi | `{"summary","firstKeptEntryId","tokensBefore"}` |
-| `branch_summary` | Pi | `{"fromId","summary"}` |
-| `custom` | Pi | `{"customType","data"}` |
-| `session_info` | Pi | `{"name"}` |
-| `label` | Pi | `{"targetId","label"}` |
-| `step_start` | Opencode | `{"snapshot"?}` — LLM round-trip start |
-| `step_finish` | Opencode | `{"reason","cost","tokens":{...}, "snapshot"?}` — LLM round-trip end |
+| event_type        | Source   | data contents                                                        |
+| ----------------- | -------- | -------------------------------------------------------------------- |
+| `model_change`    | Pi       | `{"provider","modelId"}`                                             |
+| `thinking_change` | Pi       | `{"thinkingLevel"}`                                                  |
+| `compaction`      | Pi       | `{"summary","firstKeptEntryId","tokensBefore"}`                      |
+| `branch_summary`  | Pi       | `{"fromId","summary"}`                                               |
+| `custom`          | Pi       | `{"customType","data"}`                                              |
+| `session_info`    | Pi       | `{"name"}`                                                           |
+| `label`           | Pi       | `{"targetId","label"}`                                               |
+| `step_start`      | Opencode | `{"snapshot"?}` — LLM round-trip start                               |
+| `step_finish`     | Opencode | `{"reason","cost","tokens":{...}, "snapshot"?}` — LLM round-trip end |
 
 ---
 
@@ -176,49 +176,51 @@ Service defined as a class extending `Context.Service`, with `make` factory and
 interface needed.
 
 ```typescript
-export class SessionDb extends Context.Service<SessionDb>()(
-  "radius/SessionDb",
-  {
-    make: (dbPath: string) =>
-      Effect.gen(function*() {
-        const fs = yield* FileSystem
-        const path = yield* Path
-        yield* fs.makeDirectory(path.dirname(dbPath), { recursive: true })
-        const sqlite = new Database(dbPath)
-        yield* Effect.addFinalizer(() => Effect.sync(() => sqlite.close()))
-        sqlite.pragma("journal_mode = WAL")
-        sqlite.pragma("foreign_keys = ON")
-        const db = drizzle(sqlite, { schema })
-        migrate(db, { migrationsFolder: "./src/db/migrations" })
+export class SessionDb extends Context.Service<SessionDb>()("radius/SessionDb", {
+  make: (dbPath: string) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem;
+      const path = yield* Path;
+      yield* fs.makeDirectory(path.dirname(dbPath), { recursive: true });
+      const sqlite = new Database(dbPath);
+      yield* Effect.addFinalizer(() => Effect.sync(() => sqlite.close()));
+      sqlite.pragma("journal_mode = WAL");
+      sqlite.pragma("foreign_keys = ON");
+      const db = drizzle(sqlite, { schema });
+      migrate(db, { migrationsFolder: "./src/db/migrations" });
 
-        const getSessions = (filter?: SessionFilter) =>
-          Effect.sync(() => {
-            const q = db.select().from(schema.session).$dynamic()
-            if (filter?.projectId) q.where(eq(schema.session.projectId, filter.projectId))
-            return q.all()
-          })
+      const getSessions = (filter?: SessionFilter) =>
+        Effect.sync(() => {
+          const q = db.select().from(schema.session).$dynamic();
+          if (filter?.projectId) q.where(eq(schema.session.projectId, filter.projectId));
+          return q.all();
+        });
 
-        return {
-          migrate: Effect.sync(() => migrate(db, { migrationsFolder: "./src/db/migrations" })),
-          ingestPi: Effect.die("not implemented"),
-          ingestOpencode: Effect.die("not implemented"),
-          ingestAll: Effect.die("not implemented"),
-          getProjects: Effect.sync(() => db.select().from(schema.project).all()),
-          getSessions,
-          getEvents: (sessionId: string) => Effect.sync(() =>
-            db.select().from(schema.event).where(eq(schema.event.sessionId, sessionId)).all()
+      return {
+        migrate: Effect.sync(() => migrate(db, { migrationsFolder: "./src/db/migrations" })),
+        ingestPi: Effect.die("not implemented"),
+        ingestOpencode: Effect.die("not implemented"),
+        ingestAll: Effect.die("not implemented"),
+        getProjects: Effect.sync(() => db.select().from(schema.project).all()),
+        getSessions,
+        getEvents: (sessionId: string) =>
+          Effect.sync(() =>
+            db.select().from(schema.event).where(eq(schema.event.sessionId, sessionId)).all(),
           ),
-          getModelUsage: Effect.sync(() =>
-            db.all<{ model: string; count: number }>(sql`SELECT json_extract(data, '$.model') as model, COUNT(*) as count FROM event WHERE event_type = 'message' AND json_extract(data, '$.role') = 'assistant' GROUP BY model ORDER BY count DESC`)
+        getModelUsage: Effect.sync(() =>
+          db.all<{ model: string; count: number }>(
+            sql`SELECT json_extract(data, '$.model') as model, COUNT(*) as count FROM event WHERE event_type = 'message' AND json_extract(data, '$.role') = 'assistant' GROUP BY model ORDER BY count DESC`,
           ),
-          getToolUsage: Effect.sync(() =>
-            db.all<{ tool: string; count: number }>(sql`SELECT json_extract(part.value, '$.name') as tool, COUNT(*) as count FROM event, json_each(json_extract(data, '$.content')) as part WHERE event_type = 'message' AND json_extract(data, '$.role') = 'assistant' AND json_extract(part.value, '$.type') = 'toolCall' GROUP BY tool ORDER BY count DESC`)
+        ),
+        getToolUsage: Effect.sync(() =>
+          db.all<{ tool: string; count: number }>(
+            sql`SELECT json_extract(part.value, '$.name') as tool, COUNT(*) as count FROM event, json_each(json_extract(data, '$.content')) as part WHERE event_type = 'message' AND json_extract(data, '$.role') = 'assistant' AND json_extract(part.value, '$.type') = 'toolCall' GROUP BY tool ORDER BY count DESC`,
           ),
-        } as const
-      })
-  }
-) {
-  static readonly layer = (dbPath: string) => Layer.effect(this, this.make(dbPath))
+        ),
+      } as const;
+    }),
+}) {
+  static readonly layer = (dbPath: string) => Layer.effect(this, this.make(dbPath));
 }
 ```
 
