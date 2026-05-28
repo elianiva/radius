@@ -11,11 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessionId'
 import { Route as DashboardSessionsRouteImport } from './routes/_dashboard.sessions'
 import { Route as DashboardProjectsRouteImport } from './routes/_dashboard.projects'
 import { Route as DashboardOverviewRouteImport } from './routes/_dashboard.overview'
 import { Route as DashboardHealthRouteImport } from './routes/_dashboard.health'
+import { Route as DashboardSessionsSessionIdRouteImport } from './routes/_dashboard.sessions.$sessionId'
 
 const DashboardRoute = DashboardRouteImport.update({
   id: '/_dashboard',
@@ -24,11 +24,6 @@ const DashboardRoute = DashboardRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
-  id: '/sessions/$sessionId',
-  path: '/sessions/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardSessionsRoute = DashboardSessionsRouteImport.update({
@@ -51,22 +46,28 @@ const DashboardHealthRoute = DashboardHealthRouteImport.update({
   path: '/health',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardSessionsSessionIdRoute =
+  DashboardSessionsSessionIdRouteImport.update({
+    id: '/$sessionId',
+    path: '/$sessionId',
+    getParentRoute: () => DashboardSessionsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/health': typeof DashboardHealthRoute
   '/overview': typeof DashboardOverviewRoute
   '/projects': typeof DashboardProjectsRoute
-  '/sessions': typeof DashboardSessionsRoute
-  '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/sessions': typeof DashboardSessionsRouteWithChildren
+  '/sessions/$sessionId': typeof DashboardSessionsSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/health': typeof DashboardHealthRoute
   '/overview': typeof DashboardOverviewRoute
   '/projects': typeof DashboardProjectsRoute
-  '/sessions': typeof DashboardSessionsRoute
-  '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/sessions': typeof DashboardSessionsRouteWithChildren
+  '/sessions/$sessionId': typeof DashboardSessionsSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -75,8 +76,8 @@ export interface FileRoutesById {
   '/_dashboard/health': typeof DashboardHealthRoute
   '/_dashboard/overview': typeof DashboardOverviewRoute
   '/_dashboard/projects': typeof DashboardProjectsRoute
-  '/_dashboard/sessions': typeof DashboardSessionsRoute
-  '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/_dashboard/sessions': typeof DashboardSessionsRouteWithChildren
+  '/_dashboard/sessions/$sessionId': typeof DashboardSessionsSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -103,13 +104,12 @@ export interface FileRouteTypes {
     | '/_dashboard/overview'
     | '/_dashboard/projects'
     | '/_dashboard/sessions'
-    | '/sessions/$sessionId'
+    | '/_dashboard/sessions/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRouteWithChildren
-  SessionsSessionIdRoute: typeof SessionsSessionIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -126,13 +126,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sessions/$sessionId': {
-      id: '/sessions/$sessionId'
-      path: '/sessions/$sessionId'
-      fullPath: '/sessions/$sessionId'
-      preLoaderRoute: typeof SessionsSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_dashboard/sessions': {
@@ -163,21 +156,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardHealthRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/sessions/$sessionId': {
+      id: '/_dashboard/sessions/$sessionId'
+      path: '/$sessionId'
+      fullPath: '/sessions/$sessionId'
+      preLoaderRoute: typeof DashboardSessionsSessionIdRouteImport
+      parentRoute: typeof DashboardSessionsRoute
+    }
   }
 }
+
+interface DashboardSessionsRouteChildren {
+  DashboardSessionsSessionIdRoute: typeof DashboardSessionsSessionIdRoute
+}
+
+const DashboardSessionsRouteChildren: DashboardSessionsRouteChildren = {
+  DashboardSessionsSessionIdRoute: DashboardSessionsSessionIdRoute,
+}
+
+const DashboardSessionsRouteWithChildren =
+  DashboardSessionsRoute._addFileChildren(DashboardSessionsRouteChildren)
 
 interface DashboardRouteChildren {
   DashboardHealthRoute: typeof DashboardHealthRoute
   DashboardOverviewRoute: typeof DashboardOverviewRoute
   DashboardProjectsRoute: typeof DashboardProjectsRoute
-  DashboardSessionsRoute: typeof DashboardSessionsRoute
+  DashboardSessionsRoute: typeof DashboardSessionsRouteWithChildren
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardHealthRoute: DashboardHealthRoute,
   DashboardOverviewRoute: DashboardOverviewRoute,
   DashboardProjectsRoute: DashboardProjectsRoute,
-  DashboardSessionsRoute: DashboardSessionsRoute,
+  DashboardSessionsRoute: DashboardSessionsRouteWithChildren,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
@@ -187,7 +198,6 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRouteWithChildren,
-  SessionsSessionIdRoute: SessionsSessionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

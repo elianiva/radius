@@ -5,7 +5,8 @@
 
 ## React Patterns
 
-- Always use react-query over useEffect for async state managements
+- Always use react-query over useEffect for async state managements.
+- No need to regenerate routes, it's always done automatically.
 
 ## Effect Patterns
 

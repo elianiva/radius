@@ -41,7 +41,7 @@ function ShimmerRow({ cols }: { cols: number }) {
         <td key={j} className="px-3 py-2">
           <div
             className={cn(
-              "relative isolate h-3 rounded-none bg-muted/70 before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.5s_ease-in-out_infinite] before:bg-gradient-to-r before:from-transparent before:via-foreground/[0.06] before:to-transparent",
+              "relative isolate h-3 rounded-none bg-muted/70 before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.5s_ease-in-out_infinite] before:bg-linear-to-r before:from-transparent before:via-foreground/6 before:to-transparent",
               j === 0 ? "w-32" : j === 1 ? "w-16" : "w-14",
             )}
           />
@@ -145,9 +145,7 @@ export function DataTable<T>({
           </thead>
           <tbody>
             {loading ? (
-              Array.from({ length: 6 }, (_, i) => (
-                <ShimmerRow key={i} cols={columns.length} />
-              ))
+              Array.from({ length: 6 }, (_, i) => <ShimmerRow key={i} cols={columns.length} />)
             ) : data.length === 0 ? (
               <tr>
                 <td

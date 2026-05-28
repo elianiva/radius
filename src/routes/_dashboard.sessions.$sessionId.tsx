@@ -6,7 +6,7 @@ import { getSessionEvents } from "~/server/rpc/sessions";
 import { ArrowLeft } from "lucide-react";
 import type { TimelineEvent } from "~/features/sessions/services/session";
 
-export const Route = createFileRoute("/sessions/$sessionId")({
+export const Route = createFileRoute("/_dashboard/sessions/$sessionId")({
   component: SessionDetail,
 });
 
