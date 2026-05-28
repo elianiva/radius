@@ -14,6 +14,41 @@ export interface TimelineEvent {
   readonly data: string;
 }
 
+interface Usage {
+  readonly input: number;
+  readonly output: number;
+  readonly cacheRead: number;
+  readonly cacheWrite: number;
+  readonly totalTokens: number;
+  readonly cost: {
+    readonly input: number;
+    readonly output: number;
+    readonly cacheRead: number;
+    readonly cacheWrite: number;
+    readonly total: number;
+  };
+}
+
+export interface SessionMetrics {
+  readonly id: string;
+  readonly title: string | null;
+  readonly directory: string;
+  readonly projectId: string;
+  readonly projectName: string;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+  readonly duration: number;
+  readonly messageCount: number;
+  readonly userMessageCount: number;
+  readonly assistantMessageCount: number;
+  readonly toolCallCount: number;
+  readonly toolErrorCount: number;
+  readonly totalTokens: number;
+  readonly totalCost: number;
+  readonly models: string[];
+  readonly stopReasons: Record<string, number>;
+}
+
 export class SessionError extends Data.TaggedError("SessionError")<{
   readonly cause: unknown;
   readonly message: string;
@@ -37,6 +72,11 @@ interface SessionServiceShape {
   readonly getEvents: (params: {
     readonly sessionId: string;
   }) => Effect.Effect<readonly TimelineEvent[], SessionError>;
+
+  readonly computeSessionMetrics: (params: {
+    readonly session: Session;
+    readonly projectName: string;
+  }) => Effect.Effect<SessionMetrics, SessionError>;
 }
 
 export class SessionService extends Context.Service<SessionService, SessionServiceShape>()(
@@ -60,7 +100,7 @@ export class SessionService extends Context.Service<SessionService, SessionServi
           catch: (cause) => new SessionError({ cause, message: "Failed to get events" }),
         });
 
-        const normalized: TimelineEvent[] = [
+        const normalized = [
           ...eventRows.map((r) => ({
             id: r.id,
             sessionId: r.sessionId,
@@ -133,10 +173,78 @@ export class SessionService extends Context.Service<SessionService, SessionServi
           Effect.annotateLogs({ returned: items.length, hasMore }),
         );
 
-        return { items, cursor } as Paginated<Session>;
+        return { items, cursor };
       });
 
-      return SessionService.of({ list, getEvents });
+      const computeSessionMetrics = Effect.fn("computeSessionMetrics")(function* (params: {
+        readonly session: Session;
+        readonly projectName: string;
+      }) {
+        const events = yield* getEvents({ sessionId: params.session.id });
+
+        let userMessageCount = 0;
+        let assistantMessageCount = 0;
+        let toolCallCount = 0;
+        let toolErrorCount = 0;
+        let totalTokens = 0;
+        let totalCost = 0;
+        const models = new Set<string>();
+        const stopReasons: Record<string, number> = {};
+
+        for (const evt of events) {
+          let parsed: Record<string, unknown>;
+          try {
+            parsed = JSON.parse(evt.data);
+          } catch {
+            parsed = {};
+          }
+
+          if (evt.eventType === "message") {
+            if (parsed.role === "user") {
+              userMessageCount++;
+            } else if (parsed.role === "assistant") {
+              assistantMessageCount++;
+              if (parsed.model) models.add(parsed.model as string);
+              if (parsed.usage) {
+                totalTokens += (parsed.usage as Usage).totalTokens ?? 0;
+                totalCost += (parsed.usage as Usage).cost?.total ?? 0;
+              }
+              if (parsed.stopReason) {
+                stopReasons[parsed.stopReason as string] =
+                  (stopReasons[parsed.stopReason as string] ?? 0) + 1;
+              }
+            } else if (parsed.role === "toolResult") {
+              toolCallCount++;
+              if (parsed.isError) toolErrorCount++;
+            }
+          }
+        }
+
+        const duration =
+          events.length > 0 ? events[events.length - 1]!.createdAt - params.session.createdAt : 0;
+
+        return {
+          id: params.session.id,
+          title: params.session.title,
+          directory: params.session.directory,
+          projectId: params.session.projectId,
+          projectName: params.projectName,
+          createdAt: params.session.createdAt,
+          updatedAt: params.session.updatedAt,
+          duration,
+          messageCount: userMessageCount + assistantMessageCount,
+          userMessageCount,
+          assistantMessageCount,
+          toolCallCount,
+          toolErrorCount,
+          totalTokens,
+          totalCost,
+          models: Array.from(models),
+          stopReasons,
+        };
+      });
+
+      return SessionService.of({ list, getEvents, computeSessionMetrics });
     }),
   );
 }

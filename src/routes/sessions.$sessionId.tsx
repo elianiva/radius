@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import {
   useReactTable,
   getCoreRowModel,
@@ -7,7 +7,8 @@ import {
   createColumnHelper,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
+import { Skeleton } from "~/components/ui/skeleton";
 import { getSessionEvents } from "~/server/rpc/sessions";
 import { ArrowLeft } from "lucide-react";
 import type { TimelineEvent } from "~/features/sessions/services/session";
@@ -20,10 +21,8 @@ interface ParsedEvent extends TimelineEvent {
   parsed: Record<string, unknown>;
 }
 
-function SessionDetail() {
-  const { sessionId } = Route.useParams();
-
-  const { data: events, isLoading } = useQuery({
+function EventsTable({ sessionId }: { sessionId: string }) {
+  const { data: events } = useSuspenseQuery({
     queryKey: ["session-events", sessionId],
     queryFn: () => getSessionEvents({ data: { sessionId } }),
   });
@@ -124,6 +123,50 @@ function SessionDetail() {
     getCoreRowModel: getCoreRowModel(),
   });
 
+  if (rows.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+        No events found for this session.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded border">
+      <table className="w-full text-sm">
+        <thead>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <tr key={headerGroup.id} className="border-b bg-muted/50">
+              {headerGroup.headers.map((header) => (
+                <th
+                  key={header.id}
+                  className="w-64 px-4 py-2 text-left font-medium text-muted-foreground"
+                >
+                  {flexRender(header.column.columnDef.header, header.getContext())}
+                </th>
+              ))}
+            </tr>
+          ))}
+        </thead>
+        <tbody>
+          {table.getRowModel().rows.map((row) => (
+            <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30">
+              {row.getVisibleCells().map((cell) => (
+                <td key={cell.id} className="w-64 min-w-0 overflow-hidden px-4 py-2">
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SessionDetail() {
+  const { sessionId } = Route.useParams();
+
   return (
     <main className="flex min-h-screen flex-col gap-6 p-8">
       <div className="flex items-center gap-4">
@@ -138,51 +181,18 @@ function SessionDetail() {
         <span className="text-sm text-muted-foreground">{sessionId}</span>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-          Loading events…
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded border">
-          <table className="w-full text-sm">
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id} className="border-b bg-muted/50">
-                  {headerGroup.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      className="w-64 px-4 py-2 text-left font-medium text-muted-foreground"
-                    >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30">
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="w-64 min-w-0 overflow-hidden px-4 py-2">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-              {table.getRowModel().rows.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={columns.length}
-                    className="px-4 py-8 text-center text-muted-foreground"
-                  >
-                    No events found for this session.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <Suspense
+        fallback={
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
+        }
+      >
+        <EventsTable sessionId={sessionId} />
+      </Suspense>
     </main>
   );
 }

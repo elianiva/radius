@@ -24,3 +24,6 @@ allowBuilds:
   msw: true
   sharp: true
   workerd: true
+
+patchedDependencies:
+  recharts@3.7.0: patches/recharts@3.7.0.patch

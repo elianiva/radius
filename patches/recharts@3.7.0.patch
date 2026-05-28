@@ -1,0 +1,309 @@
+diff --git a/es6/cartesian/Brush.js b/es6/cartesian/Brush.js
+index 4deeacb01723fc22768b534a295285703bdf8d25..b2949e8d5698394f989d1da6d08c494cc472cf1c 100644
+--- a/es6/cartesian/Brush.js
++++ b/es6/cartesian/Brush.js
+@@ -1,3 +1,4 @@
++import { range } from 'es-toolkit/compat';
+ function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+ function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+@@ -8,7 +9,6 @@ import * as React from 'react';
+ import { Children, PureComponent, useCallback, useContext, useEffect } from 'react';
+ import { clsx } from 'clsx';
+ import { scalePoint } from 'victory-vendor/d3-scale';
+-import range from 'es-toolkit/compat/range';
+ import { Layer } from '../container/Layer';
+ import { Text } from '../component/Text';
+ import { getValueByDataKey } from '../util/ChartUtils';
+diff --git a/es6/cartesian/CartesianAxis.js b/es6/cartesian/CartesianAxis.js
+index ffd60544f5f3c57f9ee95a2f79645137efa7283f..3c311f74926094dd1894a367914440a40a500dcd 100644
+--- a/es6/cartesian/CartesianAxis.js
++++ b/es6/cartesian/CartesianAxis.js
+@@ -1,3 +1,4 @@
++import { get } from 'es-toolkit/compat';
+ var _excluded = ["axisLine", "width", "height", "className", "hide", "ticks", "axisType"];
+ function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var n = Object.getOwnPropertySymbols(e); for (r = 0; r < n.length; r++) o = n[r], -1 === t.indexOf(o) && {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
+ function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (-1 !== e.indexOf(n)) continue; t[n] = r[n]; } return t; }
+@@ -12,7 +13,6 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e =
+  */
+ import * as React from 'react';
+ import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
+-import get from 'es-toolkit/compat/get';
+ import { clsx } from 'clsx';
+ import { Layer } from '../container/Layer';
+ import { Text } from '../component/Text';
+diff --git a/es6/cartesian/Funnel.js b/es6/cartesian/Funnel.js
+index 8287645a07d178bd6532dfdf3044a0e0c5bdf1ef..a18dc2be06ffae6aa3b89e1d9ed099d81dc35946 100644
+--- a/es6/cartesian/Funnel.js
++++ b/es6/cartesian/Funnel.js
+@@ -1,3 +1,4 @@
++import { omit } from 'es-toolkit/compat';
+ var _excluded = ["onMouseEnter", "onClick", "onMouseLeave", "shape", "activeShape"],
+   _excluded2 = ["id"],
+   _excluded3 = ["stroke", "fill", "legendType", "hide", "isAnimationActive", "animationBegin", "animationDuration", "animationEasing", "nameKey", "lastShapeType", "id"],
+@@ -12,7 +13,6 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol"
+ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+ import * as React from 'react';
+ import { useCallback, useMemo, useRef, useState } from 'react';
+-import omit from 'es-toolkit/compat/omit';
+ import { clsx } from 'clsx';
+ import { selectActiveIndex } from '../state/selectors/selectors';
+ import { useAppSelector } from '../state/hooks';
+diff --git a/es6/chart/Sankey.js b/es6/chart/Sankey.js
+index 87621be99fd9ece9fb3939ef8c5e81d9091605e6..285fcb4d6a1db25b71aa65d37684f72624724902 100644
+--- a/es6/chart/Sankey.js
++++ b/es6/chart/Sankey.js
+@@ -1,3 +1,4 @@
++import { get, maxBy, sumBy } from 'es-toolkit/compat';
+ var _excluded = ["sourceX", "sourceY", "sourceControlX", "targetX", "targetY", "targetControlX", "linkWidth"],
+   _excluded2 = ["className", "style", "children", "id"];
+ function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+@@ -10,9 +11,6 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol"
+ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+ import * as React from 'react';
+ import { useCallback, useMemo, useState } from 'react';
+-import maxBy from 'es-toolkit/compat/maxBy';
+-import sumBy from 'es-toolkit/compat/sumBy';
+-import get from 'es-toolkit/compat/get';
+ import { Surface } from '../container/Surface';
+ import { Layer } from '../container/Layer';
+ import { Rectangle } from '../shape/Rectangle';
+diff --git a/es6/chart/SunburstChart.js b/es6/chart/SunburstChart.js
+index 534d5a83cfc866a93162fa14df1e10930a79f4c1..8da1558b9c6e1e5edc5f7e7f079d90607336adff 100644
+--- a/es6/chart/SunburstChart.js
++++ b/es6/chart/SunburstChart.js
+@@ -1,3 +1,4 @@
++import { get } from 'es-toolkit/compat';
+ function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+ function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+@@ -8,7 +9,6 @@ import * as React from 'react';
+ import { useState } from 'react';
+ import { scaleLinear } from 'victory-vendor/d3-scale';
+ import { clsx } from 'clsx';
+-import get from 'es-toolkit/compat/get';
+ import { Surface } from '../container/Surface';
+ import { Layer } from '../container/Layer';
+ import { Sector } from '../shape/Sector';
+diff --git a/es6/chart/Treemap.js b/es6/chart/Treemap.js
+index a0277fd13511c209e1107e9db954d9dbdee1ac19..071856e468f3bf805e540752623bc5a0004c2b00 100644
+--- a/es6/chart/Treemap.js
++++ b/es6/chart/Treemap.js
+@@ -1,3 +1,4 @@
++import { get, omit } from 'es-toolkit/compat';
+ var _excluded = ["width", "height", "className", "style", "children", "type"];
+ function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var n = Object.getOwnPropertySymbols(e); for (r = 0; r < n.length; r++) o = n[r], -1 === t.indexOf(o) && {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
+ function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (-1 !== e.indexOf(n)) continue; t[n] = r[n]; } return t; }
+@@ -9,8 +10,6 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol"
+ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+ import * as React from 'react';
+ import { PureComponent, useCallback, useState } from 'react';
+-import omit from 'es-toolkit/compat/omit';
+-import get from 'es-toolkit/compat/get';
+ import { Layer } from '../container/Layer';
+ import { Surface } from '../container/Surface';
+ import { Polygon } from '../shape/Polygon';
+diff --git a/es6/component/DefaultTooltipContent.js b/es6/component/DefaultTooltipContent.js
+index 70f30479ff3a65265930d6475a17bfa8e9346e7b..946b97a92269b512432021471033f7ac025d3c1a 100644
+--- a/es6/component/DefaultTooltipContent.js
++++ b/es6/component/DefaultTooltipContent.js
+@@ -1,3 +1,4 @@
++import { sortBy } from 'es-toolkit/compat';
+ function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+ function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+@@ -9,7 +10,6 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e =
+  */
+ 
+ import * as React from 'react';
+-import sortBy from 'es-toolkit/compat/sortBy';
+ import { clsx } from 'clsx';
+ import { isNullish, isNumOrStr } from '../util/DataUtils';
+ function defaultFormatter(value) {
+diff --git a/es6/component/LabelList.js b/es6/component/LabelList.js
+index 70a5697a1155ee739eb2770582ef2c0a44ba5944..8e5c7be5ff944fde15a9f6cb41fc407be8741ab1 100644
+--- a/es6/component/LabelList.js
++++ b/es6/component/LabelList.js
+@@ -1,3 +1,4 @@
++import { last } from 'es-toolkit/compat';
+ var _excluded = ["valueAccessor"],
+   _excluded2 = ["dataKey", "clockWise", "id", "textBreakAll", "zIndex"];
+ function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+@@ -5,7 +6,6 @@ function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i
+ function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (-1 !== e.indexOf(n)) continue; t[n] = r[n]; } return t; }
+ import * as React from 'react';
+ import { createContext, useContext } from 'react';
+-import last from 'es-toolkit/compat/last';
+ import { isLabelContentAFunction, Label } from './Label';
+ import { Layer } from '../container/Layer';
+ import { getValueByDataKey } from '../util/ChartUtils';
+diff --git a/es6/component/ResponsiveContainer.js b/es6/component/ResponsiveContainer.js
+index 2b4e117b49042286a8f19e8320b81641ff8a3f42..02a96899c2f10f6900fbec995cea5e919a44004b 100644
+--- a/es6/component/ResponsiveContainer.js
++++ b/es6/component/ResponsiveContainer.js
+@@ -1,3 +1,4 @@
++import { throttle } from 'es-toolkit/compat';
+ function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+ function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+@@ -7,7 +8,6 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e =
+ import { clsx } from 'clsx';
+ import * as React from 'react';
+ import { createContext, forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+-import throttle from 'es-toolkit/compat/throttle';
+ import { isNumber, noop } from '../util/DataUtils';
+ import { warn } from '../util/LogUtils';
+ import { calculateChartDimensions, defaultResponsiveContainerProps, getDefaultWidthAndHeight, getInnerDivStyle } from './responsiveContainerUtils';
+diff --git a/es6/polar/Pie.js b/es6/polar/Pie.js
+index 4744198da39310f6c2557dcbdc6f99f28dd0e94e..3783b1b0ea56805ad7fa51068777d567da3b14a8 100644
+--- a/es6/polar/Pie.js
++++ b/es6/polar/Pie.js
+@@ -1,3 +1,4 @@
++import { get } from 'es-toolkit/compat';
+ var _excluded = ["key"],
+   _excluded2 = ["onMouseEnter", "onClick", "onMouseLeave"],
+   _excluded3 = ["id"],
+@@ -12,7 +13,6 @@ function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i
+ function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (-1 !== e.indexOf(n)) continue; t[n] = r[n]; } return t; }
+ import * as React from 'react';
+ import { useCallback, useMemo, useRef, useState } from 'react';
+-import get from 'es-toolkit/compat/get';
+ import { clsx } from 'clsx';
+ import { selectPieLegend, selectPieSectors } from '../state/selectors/pieSelectors';
+ import { useAppSelector } from '../state/hooks';
+diff --git a/es6/polar/PolarRadiusAxis.js b/es6/polar/PolarRadiusAxis.js
+index afca4cdac8b352047eca19bd060e7d29aad4e8a0..7ce363c395e12faaf82acf8965525cc5d739f627 100644
+--- a/es6/polar/PolarRadiusAxis.js
++++ b/es6/polar/PolarRadiusAxis.js
+@@ -1,3 +1,4 @@
++import { maxBy, minBy } from 'es-toolkit/compat';
+ var _excluded = ["type"],
+   _excluded2 = ["cx", "cy", "angle", "axisLine"],
+   _excluded3 = ["angle", "tickFormatter", "stroke", "tick"];
+@@ -11,8 +12,6 @@ function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i
+ function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (-1 !== e.indexOf(n)) continue; t[n] = r[n]; } return t; }
+ import * as React from 'react';
+ import { useEffect, useMemo } from 'react';
+-import maxBy from 'es-toolkit/compat/maxBy';
+-import minBy from 'es-toolkit/compat/minBy';
+ import { clsx } from 'clsx';
+ import { Text } from '../component/Text';
+ import { PolarLabelContextProvider, PolarLabelFromLabelProp } from '../component/Label';
+diff --git a/es6/polar/Radar.js b/es6/polar/Radar.js
+index 113ad6d69f9a5f15db2156e22c2f169776a7a4d7..1e5d1e898836c6a7ed95d1863dd81c4085920af1 100644
+--- a/es6/polar/Radar.js
++++ b/es6/polar/Radar.js
+@@ -1,3 +1,4 @@
++import { last } from 'es-toolkit/compat';
+ var _excluded = ["id"];
+ function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+ function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+@@ -9,7 +10,6 @@ function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i
+ function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (-1 !== e.indexOf(n)) continue; t[n] = r[n]; } return t; }
+ import * as React from 'react';
+ import { useCallback, useRef, useState } from 'react';
+-import last from 'es-toolkit/compat/last';
+ import { clsx } from 'clsx';
+ import { interpolate, isNullish, noop } from '../util/DataUtils';
+ import { polarToCartesian } from '../util/PolarUtils';
+diff --git a/es6/state/selectors/axisSelectors.js b/es6/state/selectors/axisSelectors.js
+index 71feeb8201de692ed8c09a4623c803d45d21319b..e69ff75c927b07e14f740e97b7c82aced96066b2 100644
+--- a/es6/state/selectors/axisSelectors.js
++++ b/es6/state/selectors/axisSelectors.js
+@@ -1,10 +1,10 @@
++import { range } from 'es-toolkit/compat';
+ function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+ function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == typeof i ? i : i + ""; }
+ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+ import { createSelector } from 'reselect';
+-import range from 'es-toolkit/compat/range';
+ import * as d3Scales from 'victory-vendor/d3-scale';
+ import { selectChartLayout } from '../../context/chartLayoutContext';
+ import { getDomainOfStackGroups, getStackedData, getValueByDataKey, isCategoricalAxis } from '../../util/ChartUtils';
+diff --git a/es6/state/selectors/legendSelectors.js b/es6/state/selectors/legendSelectors.js
+index ab9074490d5475099a306c6c70c3a863985caf6e..9dddcc6d61790126e698f9245e3dc7ee5062b24d 100644
+--- a/es6/state/selectors/legendSelectors.js
++++ b/es6/state/selectors/legendSelectors.js
+@@ -1,5 +1,5 @@
++import { sortBy } from 'es-toolkit/compat';
+ import { createSelector } from 'reselect';
+-import sortBy from 'es-toolkit/compat/sortBy';
+ export var selectLegendSettings = state => state.legend.settings;
+ export var selectLegendSize = state => state.legend.size;
+ var selectAllLegendPayload2DArray = state => state.legend.payload;
+diff --git a/es6/state/selectors/selectors.js b/es6/state/selectors/selectors.js
+index f23685a1751faa3e08e6110b9501b474e03dfaa8..36508f42c80f3b6c121c721904ffa905802830b6 100644
+--- a/es6/state/selectors/selectors.js
++++ b/es6/state/selectors/selectors.js
+@@ -1,5 +1,5 @@
++import { sortBy } from 'es-toolkit/compat';
+ import { createSelector } from 'reselect';
+-import sortBy from 'es-toolkit/compat/sortBy';
+ import { useAppSelector } from '../hooks';
+ import { calculateCartesianTooltipPos, calculatePolarTooltipPos } from '../../util/ChartUtils';
+ import { selectChartDataWithIndexes } from './dataSelectors';
+diff --git a/es6/util/ActiveShapeUtils.js b/es6/util/ActiveShapeUtils.js
+index 04f1a7ba4973dfac7adbc14784c469cc413ffdb7..afa58ffdcebe6ef52ac05145615c10002d0ae3fb 100644
+--- a/es6/util/ActiveShapeUtils.js
++++ b/es6/util/ActiveShapeUtils.js
+@@ -1,3 +1,4 @@
++import { isPlainObject } from 'es-toolkit/compat';
+ var _excluded = ["option", "shapeType", "activeClassName"];
+ function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var n = Object.getOwnPropertySymbols(e); for (r = 0; r < n.length; r++) o = n[r], -1 === t.indexOf(o) && {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
+ function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (-1 !== e.indexOf(n)) continue; t[n] = r[n]; } return t; }
+@@ -8,7 +9,6 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol"
+ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+ import * as React from 'react';
+ import { cloneElement, isValidElement } from 'react';
+-import isPlainObject from 'es-toolkit/compat/isPlainObject';
+ import { Rectangle } from '../shape/Rectangle';
+ import { Trapezoid } from '../shape/Trapezoid';
+ import { Sector } from '../shape/Sector';
+diff --git a/es6/util/ChartUtils.js b/es6/util/ChartUtils.js
+index 7fc067732996726caac15a54f2f5153ce8728577..19507ff918f6ad40e3de6291264f23a0847d58d2 100644
+--- a/es6/util/ChartUtils.js
++++ b/es6/util/ChartUtils.js
+@@ -1,10 +1,9 @@
++import { get, sortBy } from 'es-toolkit/compat';
+ function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+ function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == typeof i ? i : i + ""; }
+ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+-import sortBy from 'es-toolkit/compat/sortBy';
+-import get from 'es-toolkit/compat/get';
+ import { stack as shapeStack, stackOffsetExpand, stackOffsetNone, stackOffsetSilhouette, stackOffsetWiggle, stackOrderNone } from 'victory-vendor/d3-shape';
+ import { findEntryInArray, isNan, isNotNil, isNullish, isNumber, isNumOrStr, mathSign } from './DataUtils';
+ import { getSliced } from './getSliced';
+diff --git a/es6/util/DataUtils.js b/es6/util/DataUtils.js
+index cf8d44a068aa71919688b16ad5954627f8b147fe..28ad18ff4957835504a39fb821e240acab964348 100644
+--- a/es6/util/DataUtils.js
++++ b/es6/util/DataUtils.js
+@@ -1,4 +1,4 @@
+-import get from 'es-toolkit/compat/get';
++import { get } from 'es-toolkit/compat';
+ import { round } from './round';
+ export var mathSign = value => {
+   if (value === 0) {
+diff --git a/es6/util/ReactUtils.js b/es6/util/ReactUtils.js
+index 495eb760fa9d635b3843a37cb467a83d1175432f..5f75632687ef27b8e7167097e5627f71a127c13c 100644
+--- a/es6/util/ReactUtils.js
++++ b/es6/util/ReactUtils.js
+@@ -1,4 +1,4 @@
+-import get from 'es-toolkit/compat/get';
++import { get } from 'es-toolkit/compat';
+ import { Children } from 'react';
+ import { isFragment } from 'react-is';
+ import { isNullish } from './DataUtils';
+diff --git a/es6/util/payload/getUniqPayload.js b/es6/util/payload/getUniqPayload.js
+index 93992a462cfd2f9b9e5aa2067174801911681393..340a0ec82c6835912cc526c986e391ab8ca2516b 100644
+--- a/es6/util/payload/getUniqPayload.js
++++ b/es6/util/payload/getUniqPayload.js
+@@ -1,4 +1,4 @@
+-import uniqBy from 'es-toolkit/compat/uniqBy';
++import { uniqBy } from 'es-toolkit/compat';
+ 
+ /**
+  * This is configuration option that decides how to filter for unique values only:
