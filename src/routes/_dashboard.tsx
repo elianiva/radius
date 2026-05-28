@@ -5,7 +5,7 @@ import { Suspense, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Loader2, Sparkles, BarChart3, Folder, List, HeartPulse } from "lucide-react";
 import { importPiSessions } from "~/server/rpc/sessions";
-import { getDashboardMetrics } from "~/server/rpc/dashboard";
+import { getOverviewCards } from "~/server/rpc/dashboard";
 import type { IngestProgress } from "~/features/sessions/adapters/pi";
 import { OverviewLoading } from "~/features/dashboard/loading";
 
@@ -78,10 +78,10 @@ function DashboardLayout() {
   const queryClient = useQueryClient();
   const [ingestProgress, setIngestProgress] = useState<IngestProgress | null>(null);
 
-  const { data: metrics } = useSuspenseQuery({
-    queryKey: ["dashboard-metrics"],
-    queryFn: () => getDashboardMetrics(),
-    staleTime: 60_000,
+  const { data: summary } = useSuspenseQuery({
+    queryKey: ["overview-cards"],
+    queryFn: () => getOverviewCards(),
+    staleTime: 30_000,
   });
 
   const importMutation = useMutation({
@@ -94,6 +94,16 @@ function DashboardLayout() {
     onSuccess: () => {
       setIngestProgress(null);
       void queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+      void queryClient.invalidateQueries({ queryKey: ["overview-cards"] });
+      void queryClient.invalidateQueries({ queryKey: ["cost-over-time"] });
+      void queryClient.invalidateQueries({ queryKey: ["model-usage"] });
+      void queryClient.invalidateQueries({ queryKey: ["top-projects"] });
+      void queryClient.invalidateQueries({ queryKey: ["thinking-levels"] });
+      void queryClient.invalidateQueries({ queryKey: ["stop-reasons"] });
+      void queryClient.invalidateQueries({ queryKey: ["health-summary"] });
+      void queryClient.invalidateQueries({ queryKey: ["error-trend"] });
+      void queryClient.invalidateQueries({ queryKey: ["error-rate-by-project"] });
+      void queryClient.invalidateQueries({ queryKey: ["tool-errors"] });
     },
   });
 
@@ -120,7 +130,7 @@ function DashboardLayout() {
         <div className="flex items-center justify-center rounded border py-16">
           <Digest progress={ingestProgress} />
         </div>
-      ) : metrics.totalSessions === 0 ? (
+      ) : summary.totalSessions === 0 ? (
         <div className="flex flex-col items-center justify-center gap-4 rounded border py-16">
           <p className="text-muted-foreground">No sessions yet</p>
           <Button onClick={() => importMutation.mutate()}>Import Pi Sessions</Button>

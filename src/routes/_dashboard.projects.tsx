@@ -17,7 +17,7 @@ function ProjectsRoute() {
   const { data: metrics } = useSuspenseQuery({
     queryKey: ["dashboard-metrics"],
     queryFn: () => getDashboardMetrics(),
-    staleTime: 60_000,
+    staleTime: 120_000,
   });
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);

@@ -1,5 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import {
+  ChartCardSkeleton,
+  ChartSkeleton,
+  HeatmapSkeleton,
+} from "./loading";
+import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
@@ -18,7 +23,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { DashboardMetrics } from "./types";
+import type {
+  DashboardMetrics,
+  CostOverTime,
+  ModelUsage,
+  ThinkingLevelUsage,
+  StopReason,
+} from "./types";
 import { HeatmapGrid } from "~/components/ui/heatmap-grid";
 import { buildHeatmapWeeks } from "~/lib/heatmap";
 import { useMemo, useState } from "react";
@@ -90,7 +101,33 @@ function CustomLegend({ data }: { data: { model: string; fill: string }[] }) {
 }
 
 interface OverviewProps {
-  metrics: DashboardMetrics;
+  cards: {
+    totalSessions: number;
+    totalCost: number;
+    avgCostPerSession: number;
+    totalTokens: number;
+    errorRate: number;
+    mostUsedModel: {
+      name: string;
+      count: number;
+    };
+  };
+  costOverTime?: CostOverTime[];
+  modelUsage?: ModelUsage[];
+  topProjects?: readonly {
+    name: string;
+    sessionCount: number;
+    cost: number;
+  }[];
+  thinkingLevels?: ThinkingLevelUsage[];
+  stopReasons?: StopReason[];
+  isLoading?: {
+    costOverTime?: boolean;
+    modelUsage?: boolean;
+    topProjects?: boolean;
+    thinkingLevels?: boolean;
+    stopReasons?: boolean;
+  };
 }
 
 function ActivityHeatmap({ data }: { data: DashboardMetrics["costOverTime"] }) {
@@ -122,29 +159,31 @@ function ActivityHeatmap({ data }: { data: DashboardMetrics["costOverTime"] }) {
   );
 }
 
-function SummaryCards({ metrics }: OverviewProps) {
-  const cards = [
+function SummaryCards({ cards }: {
+  cards: OverviewProps["cards"];
+}) {
+  const items = [
     {
       description: "Total Sessions",
-      value: metrics.totalSessions,
+      value: cards.totalSessions,
       icon: MessageSquare,
       format: (v: number) => String(v),
     },
     {
       description: "Total Cost",
-      value: metrics.totalCost,
+      value: cards.totalCost,
       icon: DollarSign,
       format: formatCost,
     },
     {
       description: "Avg Cost/Session",
-      value: metrics.avgCostPerSession,
+      value: cards.avgCostPerSession,
       icon: TrendingUp,
       format: formatCost,
     },
     {
       description: "Total Tokens",
-      value: metrics.totalTokens,
+      value: cards.totalTokens,
       icon: Coins,
       format: formatTokens,
     },
@@ -158,7 +197,7 @@ function SummaryCards({ metrics }: OverviewProps) {
   return (
     <>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {cards.map(({ description, value, icon: Icon, format }) => (
+        {items.map(({ description, value, icon: Icon, format }) => (
           <Card key={description}>
             <CardHeader>
               <CardDescription>{description}</CardDescription>
@@ -174,21 +213,21 @@ function SummaryCards({ metrics }: OverviewProps) {
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="secondary" className="flex items-center gap-1.5 text-xs">
           <Brain className="size-3" />
-          Most used: {metrics.mostUsedModel.name}
+          Most used: {cards.mostUsedModel.name}
         </Badge>
         <Badge
-          variant={metrics.errorRate > 0.2 ? "destructive" : "secondary"}
+          variant={cards.errorRate > 0.2 ? "destructive" : "secondary"}
           className="flex items-center gap-1.5 text-xs"
         >
           <AlertTriangle className="size-3" />
-          Error rate: {(metrics.errorRate * 100).toFixed(1)}%
+          Error rate: {(cards.errorRate * 100).toFixed(1)}%
         </Badge>
       </div>
     </>
   );
 }
 
-function aggregateWeeks(data: DashboardMetrics["costOverTime"]) {
+function aggregateWeeks(data: CostOverTime[]) {
   const weeks = new Map<string, { start: string; cost: number; sessions: number }>();
 
   for (const d of data) {
@@ -207,7 +246,7 @@ function aggregateWeeks(data: DashboardMetrics["costOverTime"]) {
   return Array.from(weeks.values()).sort((a, b) => a.start.localeCompare(b.start));
 }
 
-function CostOverTimeChart({ data }: { data: DashboardMetrics["costOverTime"] }) {
+function CostOverTimeChart({ data }: { data: CostOverTime[] }) {
   const [view, setView] = useState<"daily" | "weekly">("daily");
 
   const chartData = useMemo(() => {
@@ -293,7 +332,7 @@ function CostOverTimeChart({ data }: { data: DashboardMetrics["costOverTime"] })
   );
 }
 
-function ModelUsageChart({ data }: { data: DashboardMetrics["modelUsage"] }) {
+function ModelUsageChart({ data }: { data: ModelUsage[] }) {
   const modelPieData = data.map((m, i) => ({
     model: m.model,
     count: m.count,
@@ -341,7 +380,7 @@ function ModelUsageChart({ data }: { data: DashboardMetrics["modelUsage"] }) {
   );
 }
 
-function TopProjectsChart({ data }: { data: DashboardMetrics["topProjects"] }) {
+function TopProjectsChart({ data }: { data: OverviewProps["topProjects"] }) {
   return (
     <Card>
       <CardHeader>
@@ -380,7 +419,7 @@ function TopProjectsChart({ data }: { data: DashboardMetrics["topProjects"] }) {
   );
 }
 
-function ThinkingLevelChart({ data }: { data: DashboardMetrics["thinkingLevels"] }) {
+function ThinkingLevelChart({ data }: { data: ThinkingLevelUsage[] }) {
   return (
     <Card>
       <CardHeader>
@@ -423,7 +462,7 @@ function ThinkingLevelChart({ data }: { data: DashboardMetrics["thinkingLevels"]
   );
 }
 
-function StopReasonsChart({ data }: { data: DashboardMetrics["stopReasons"] }) {
+function StopReasonsChart({ data }: { data: StopReason[] }) {
   const total = data.reduce((sum, r) => sum + r.count, 0);
 
   return (
@@ -468,24 +507,48 @@ function StopReasonsChart({ data }: { data: DashboardMetrics["stopReasons"] }) {
   );
 }
 
-export function Overview({ metrics }: OverviewProps) {
+export function Overview({ cards, costOverTime, modelUsage, topProjects, thinkingLevels, stopReasons, isLoading = {} }: OverviewProps) {
   return (
     <div className="flex flex-col gap-4">
-      <SummaryCards metrics={metrics} />
+      <SummaryCards cards={cards} />
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <CostOverTimeChart data={metrics.costOverTime} />
-        <ModelUsageChart data={metrics.modelUsage} />
+        {isLoading.costOverTime ? (
+          <ChartCardSkeleton rows={5} className="lg:col-span-2" />
+        ) : (
+          <CostOverTimeChart data={costOverTime!} />
+        )}
+        {isLoading.modelUsage ? (
+          <Card><CardHeader><CardDescription className="h-3 w-24 animate-pulse rounded bg-muted" /></CardHeader><CardContent className="flex justify-center"><div className="size-32 animate-pulse rounded-full bg-muted" /></CardContent></Card>
+        ) : (
+          <ModelUsageChart data={modelUsage!} />
+        )}
       </div>
 
-      <TopProjectsChart data={metrics.topProjects} />
+      {isLoading.topProjects ? (
+        <Card><CardHeader><CardDescription className="h-3 w-24 animate-pulse rounded bg-muted" /></CardHeader><CardContent><ChartSkeleton className="h-50" /></CardContent></Card>
+      ) : (
+        <TopProjectsChart data={topProjects!} />
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <ThinkingLevelChart data={metrics.thinkingLevels} />
-        <StopReasonsChart data={metrics.stopReasons} />
+        {isLoading.thinkingLevels ? (
+          <ChartCardSkeleton rows={3} />
+        ) : (
+          <ThinkingLevelChart data={thinkingLevels!} />
+        )}
+        {isLoading.stopReasons ? (
+          <Card><CardHeader><CardDescription className="h-3 w-28 animate-pulse rounded bg-muted" /></CardHeader><CardContent><div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => (<div key={i}><div className="mb-1 flex items-center justify-between"><div className="h-2.5 w-20 animate-pulse rounded bg-muted" /><div className="h-2.5 w-12 animate-pulse rounded bg-muted" /></div><div className="h-2 w-full animate-pulse rounded bg-muted" /></div>))}</div></CardContent></Card>
+        ) : (
+          <StopReasonsChart data={stopReasons!} />
+        )}
       </div>
 
-      <ActivityHeatmap data={metrics.costOverTime} />
+      {isLoading.costOverTime ? (
+        <Card><CardHeader><CardDescription className="h-3 w-16 animate-pulse rounded bg-muted" /></CardHeader><CardContent><HeatmapSkeleton /></CardContent></Card>
+      ) : (
+        <ActivityHeatmap data={costOverTime!} />
+      )}
     </div>
   );
 }

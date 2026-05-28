@@ -1,9 +1,14 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "~/components/ui/chart";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "~/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Line, LineChart } from "recharts";
 import { useQuery } from "@tanstack/react-query";
-import type { HealthMetrics, ToolMetrics, ExtendedSession, PaginatedSessions } from "./types";
+import type { ToolMetrics, ExtendedSession, PaginatedSessions } from "./types";
 import { AlertTriangle, Wrench, DollarSign, Coins, Bug, Activity, TrendingUp } from "lucide-react";
 import { formatCost, formatTokens, formatDuration } from "~/lib/utils";
 import { Badge } from "~/components/ui/badge";
@@ -14,35 +19,61 @@ import {
   getHighTokenSessions,
   getErrorProneSessions,
 } from "~/server/rpc/dashboard";
+import { StatCardGridSkeleton, ChartCardSkeleton, BarListSkeleton } from "./loading";
 
 interface HealthProps {
-  metrics: HealthMetrics;
+  summary?: {
+    totalSessions: number;
+    totalToolCalls: number;
+    totalToolErrors: number;
+    globalErrorRate: number;
+  };
+  errorTrend?: {
+    date: string;
+    totalSessions: number;
+    errorSessions: number;
+    errorRate: number;
+  }[];
+  errorRateByProject?: {
+    project: string;
+    errorRate: number;
+    sessionCount: number;
+  }[];
+  toolErrors?: {
+    mostFailingTools: ToolMetrics[];
+    failingToolsByProject: { project: string; tools: ToolMetrics[] }[];
+  };
+  isLoading?: {
+    summary?: boolean;
+    errorTrend?: boolean;
+    errorRateByProject?: boolean;
+    toolErrors?: boolean;
+  };
 }
 
-
-function SummaryBar({ metrics }: { metrics: HealthMetrics }) {
+function SummaryBar({ summary }: { summary: NonNullable<HealthProps["summary"]> }) {
   const items = [
     {
       label: "Sessions",
-      value: String(metrics.totalSessions),
+      value: String(summary.totalSessions),
       icon: Activity,
     },
     {
       label: "Error Rate",
-      value: `${(metrics.globalErrorRate * 100).toFixed(1)}%`,
+      value: `${(summary.globalErrorRate * 100).toFixed(1)}%`,
       icon: AlertTriangle,
-      highlight: metrics.globalErrorRate > 0.3,
+      highlight: summary.globalErrorRate > 0.3,
     },
     {
       label: "Tool Calls",
-      value: metrics.totalToolCalls.toLocaleString(),
+      value: summary.totalToolCalls.toLocaleString(),
       icon: Wrench,
     },
     {
       label: "Tool Errors",
-      value: metrics.totalToolErrors.toLocaleString(),
+      value: summary.totalToolErrors.toLocaleString(),
       icon: Bug,
-      highlight: metrics.totalToolErrors > 0,
+      highlight: summary.totalToolErrors > 0,
     },
     {
       label: "Total Cost",
@@ -70,7 +101,6 @@ function SummaryBar({ metrics }: { metrics: HealthMetrics }) {
   );
 }
 
-
 const trendConfig = {
   errorRate: {
     label: "Error Rate",
@@ -82,7 +112,7 @@ const trendConfig = {
   },
 } satisfies ChartConfig;
 
-function ErrorTrendChart({ data }: { data: HealthMetrics["errorTrend"] }) {
+function ErrorTrendChart({ data }: { data: NonNullable<HealthProps["errorTrend"]> }) {
   return (
     <Card className="lg:col-span-2">
       <CardHeader>
@@ -93,7 +123,7 @@ function ErrorTrendChart({ data }: { data: HealthMetrics["errorTrend"] }) {
         <CardDescription>Daily error rate trend</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={trendConfig} className="h-60 w-full">
+        <ChartContainer config={trendConfig} className="h-90 w-full">
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
             <XAxis
@@ -149,7 +179,7 @@ function ErrorTrendChart({ data }: { data: HealthMetrics["errorTrend"] }) {
   );
 }
 
-function ErrorRateByProject({ data }: { data: HealthMetrics["errorRateByProject"] }) {
+function ErrorRateByProject({ data }: { data: NonNullable<HealthProps["errorRateByProject"]> }) {
   const filtered = data.filter((d) => d.sessionCount >= 3);
   const top10 = filtered
     .sort((a, b) => b.errorRate * Math.log(b.sessionCount) - a.errorRate * Math.log(a.sessionCount))
@@ -169,12 +199,13 @@ function ErrorRateByProject({ data }: { data: HealthMetrics["errorRateByProject"
         <div className="space-y-1">
           {top10.map((d) => {
             const color =
-              d.errorRate > 0.3 ? "var(--chart-1)" : d.errorRate > 0.1 ? "var(--chart-3)" : "var(--chart-2)";
+              d.errorRate > 0.3
+                ? "var(--chart-1)"
+                : d.errorRate > 0.1
+                  ? "var(--chart-3)"
+                  : "var(--chart-2)";
             return (
-              <div
-                key={d.project}
-                className="relative flex items-center gap-3 px-2 py-1.5"
-              >
+              <div key={d.project} className="relative flex items-center gap-3 px-2 py-1.5">
                 <span
                   className="absolute inset-y-0 left-0 opacity-10"
                   style={{
@@ -198,13 +229,12 @@ function ErrorRateByProject({ data }: { data: HealthMetrics["errorRateByProject"
   );
 }
 
-
 function ToolErrorBreakdown({
   mostFailingTools,
   failingToolsByProject,
 }: {
   mostFailingTools: ToolMetrics[];
-  failingToolsByProject: HealthMetrics["failingToolsByProject"];
+  failingToolsByProject: { project: string; tools: ToolMetrics[] }[];
 }) {
   const [tab, setTab] = useState<"global" | string>("global");
 
@@ -288,7 +318,6 @@ function ToolErrorBreakdown({
     </Card>
   );
 }
-
 
 const sessionColumns: Column<ExtendedSession>[] = [
   {
@@ -477,19 +506,45 @@ function SessionTables() {
   );
 }
 
-
-export function HealthDashboard({ metrics }: HealthProps) {
+export function HealthDashboard({
+  summary,
+  errorTrend,
+  errorRateByProject,
+  toolErrors,
+  isLoading = {},
+}: HealthProps) {
   return (
     <div className="flex flex-col gap-4">
-      <SummaryBar metrics={metrics} />
+      {isLoading.summary ? <StatCardGridSkeleton count={5} /> : <SummaryBar summary={summary!} />}
 
-      <ErrorTrendChart data={metrics.errorTrend} />
-      <ErrorRateByProject data={metrics.errorRateByProject} />
+      <div className="grid gap-4 lg:grid-cols-3">
+        {isLoading.errorTrend ? (
+          <ChartCardSkeleton rows={4} className="lg:col-span-2" />
+        ) : (
+          <ErrorTrendChart data={errorTrend!} />
+        )}
+        {isLoading.errorRateByProject ? (
+          <Card>
+            <CardHeader>
+              <CardDescription className="h-3 w-36 animate-pulse rounded bg-muted" />
+            </CardHeader>
+            <CardContent>
+              <BarListSkeleton count={5} />
+            </CardContent>
+          </Card>
+        ) : (
+          <ErrorRateByProject data={errorRateByProject!} />
+        )}
+      </div>
 
-      <ToolErrorBreakdown
-        mostFailingTools={metrics.mostFailingTools}
-        failingToolsByProject={metrics.failingToolsByProject}
-      />
+      {isLoading.toolErrors ? (
+        <ChartCardSkeleton rows={5} />
+      ) : (
+        <ToolErrorBreakdown
+          mostFailingTools={toolErrors!.mostFailingTools}
+          failingToolsByProject={toolErrors!.failingToolsByProject}
+        />
+      )}
 
       <SessionTables />
     </div>

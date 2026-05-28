@@ -12,6 +12,196 @@ import {
 } from "~/features/sessions/services/session";
 import { PlatformLayer } from "../app-layer";
 
+function computeMetricsForSessions(
+  sessionRows: (typeof session.$inferSelect)[],
+  projectNameMap: Map<string, string>,
+) {
+  return Effect.gen(function*() {
+    const svc = yield* SessionService;
+    return yield* Effect.all(
+      sessionRows.map((sess) =>
+        svc.computeSessionMetrics({
+          session: sess,
+          projectName: projectNameMap.get(sess.projectId) ?? "Unknown",
+        }),
+      ),
+      { concurrency: 10 },
+    );
+  });
+}
+
+function getProjectNameMap() {
+  return Effect.gen(function*() {
+    const db = yield* Database;
+    const projectRows = db.select().from(project).all();
+    return new Map(projectRows.map((p) => [p.id, p.name ?? "Unknown"]));
+  });
+}
+
+function getAllSessions() {
+  return Effect.gen(function*() {
+    const db = yield* Database;
+    return db.select().from(session).orderBy(desc(session.createdAt)).all();
+  });
+}
+
+// ── Granular overview endpoints ──
+
+export const getOverviewCards = createServerFn({ method: "GET" }).handler(() =>
+  AppRuntime.runPromise(
+    Effect.gen(function*() {
+      const sessionRows = yield* getAllSessions();
+      const projectNameMap = yield* getProjectNameMap();
+      const allMetrics = yield* computeMetricsForSessions(sessionRows, projectNameMap);
+
+      const totalCost = allMetrics.reduce((sum, s) => sum + s.totalCost, 0);
+      const totalTokens = allMetrics.reduce((sum, s) => sum + s.totalTokens, 0);
+      const errorSessionCount = allMetrics.filter((s) => s.toolErrorCount > 0).length;
+
+      const globalModelCounts = new Map<string, number>();
+      for (const s of allMetrics) {
+        for (const m of s.models) globalModelCounts.set(m, (globalModelCounts.get(m) ?? 0) + 1);
+      }
+      const mostUsedModelEntry = Array.from(globalModelCounts.entries()).sort(
+        (a, b) => b[1] - a[1],
+      )[0];
+
+      return {
+        totalSessions: allMetrics.length,
+        totalCost,
+        avgCostPerSession: allMetrics.length > 0 ? totalCost / allMetrics.length : 0,
+        totalTokens,
+        errorRate: allMetrics.length > 0 ? errorSessionCount / allMetrics.length : 0,
+        mostUsedModel: mostUsedModelEntry
+          ? { name: mostUsedModelEntry[0], count: mostUsedModelEntry[1] }
+          : { name: "—", count: 0 },
+      };
+    }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
+  ),
+);
+
+export const getCostOverTime = createServerFn({ method: "GET" }).handler(() =>
+  AppRuntime.runPromise(
+    Effect.gen(function*() {
+      const sessionRows = yield* getAllSessions();
+      const projectNameMap = yield* getProjectNameMap();
+      const allMetrics = yield* computeMetricsForSessions(sessionRows, projectNameMap);
+
+      const costByDate = new Map<string, { cost: number; sessions: number }>();
+      for (const s of allMetrics) {
+        const date = new Date(s.createdAt).toISOString().split("T")[0]!;
+        const existing = costByDate.get(date) ?? { cost: 0, sessions: 0 };
+        existing.cost += s.totalCost;
+        existing.sessions += 1;
+        costByDate.set(date, existing);
+      }
+
+      return Array.from(costByDate.entries())
+        .map(([date, data]) => ({ date, ...data }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
+  ),
+);
+
+export const getModelUsage = createServerFn({ method: "GET" }).handler(() =>
+  AppRuntime.runPromise(
+    Effect.gen(function*() {
+      const sessionRows = yield* getAllSessions();
+      const projectNameMap = yield* getProjectNameMap();
+      const allMetrics = yield* computeMetricsForSessions(sessionRows, projectNameMap);
+
+      const modelCountMap = new Map<string, { count: number; cost: number }>();
+      for (const s of allMetrics) {
+        for (const m of s.models) {
+          const existing = modelCountMap.get(m) ?? { count: 0, cost: 0 };
+          existing.count += 1;
+          existing.cost += s.totalCost;
+          modelCountMap.set(m, existing);
+        }
+      }
+      return Array.from(modelCountMap.entries())
+        .map(([model, data]) => ({ model, ...data }))
+        .sort((a, b) => b.count - a.count);
+    }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
+  ),
+);
+
+export const getTopProjects = createServerFn({ method: "GET" }).handler(() =>
+  AppRuntime.runPromise(
+    Effect.gen(function*() {
+      const sessionRows = yield* getAllSessions();
+      const projectNameMap = yield* getProjectNameMap();
+      const allMetrics = yield* computeMetricsForSessions(sessionRows, projectNameMap);
+
+      const projectSessionsMap = new Map<string, { name: string; sessionCount: number; cost: number }>();
+      for (const m of allMetrics) {
+        const existing = projectSessionsMap.get(m.projectId) ?? {
+          name: m.projectName,
+          sessionCount: 0,
+          cost: 0,
+        };
+        existing.sessionCount += 1;
+        existing.cost += m.totalCost;
+        projectSessionsMap.set(m.projectId, existing);
+      }
+
+      return Array.from(projectSessionsMap.values())
+        .sort((a, b) => b.sessionCount - a.sessionCount)
+        .slice(0, 5);
+    }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
+  ),
+);
+
+export const getThinkingLevels = createServerFn({ method: "GET" }).handler(() =>
+  AppRuntime.runPromise(
+    Effect.gen(function*() {
+      const db = yield* Database;
+
+      const thinkingRows = yield* Effect.try({
+        try: () =>
+          db.select().from(sessionEvent).where(eq(sessionEvent.eventType, "thinking_change")).all(),
+        catch: (cause) =>
+          new SessionError({ cause, message: "Failed to get thinking level events" }),
+      });
+
+      const thinkingLevelCounts = new Map<string, number>();
+      for (const row of thinkingRows) {
+        let parsed: Record<string, unknown>;
+        try {
+          parsed = JSON.parse(row.data);
+        } catch {
+          parsed = {};
+        }
+        const level = (parsed.thinkingLevel ?? parsed.level ?? "off") as string;
+        thinkingLevelCounts.set(level, (thinkingLevelCounts.get(level) ?? 0) + 1);
+      }
+      return Array.from(thinkingLevelCounts.entries())
+        .map(([level, count]) => ({ level, count }))
+        .sort((a, b) => b.count - a.count);
+    }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
+  ),
+);
+
+export const getStopReasons = createServerFn({ method: "GET" }).handler(() =>
+  AppRuntime.runPromise(
+    Effect.gen(function*() {
+      const sessionRows = yield* getAllSessions();
+      const projectNameMap = yield* getProjectNameMap();
+      const allMetrics = yield* computeMetricsForSessions(sessionRows, projectNameMap);
+
+      const stopReasonCounts = new Map<string, number>();
+      for (const s of allMetrics) {
+        for (const [reason, count] of Object.entries(s.stopReasons)) {
+          stopReasonCounts.set(reason, (stopReasonCounts.get(reason) ?? 0) + count);
+        }
+      }
+      return Array.from(stopReasonCounts.entries())
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((a, b) => b.count - a.count);
+    }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
+  ),
+);
+
 export const getDashboardMetrics = createServerFn({ method: "GET" }).handler(() =>
   AppRuntime.runPromise(
     Effect.gen(function*() {
@@ -199,27 +389,66 @@ export const getSessionsMetrics = createServerFn({ method: "GET" })
     ),
   );
 
-export const getHealthMetrics = createServerFn({ method: "GET" }).handler(() =>
+// ── Granular health endpoints ──
+
+export const getHealthSummary = createServerFn({ method: "GET" }).handler(() =>
+  AppRuntime.runPromise(
+    Effect.gen(function*() {
+      const sessionRows = yield* getAllSessions();
+      const projectNameMap = yield* getProjectNameMap();
+      const allMetrics = yield* computeMetricsForSessions(sessionRows, projectNameMap);
+
+      const totalToolCalls = allMetrics.reduce((s, m) => s + m.toolCallCount, 0);
+      const totalToolErrors = allMetrics.reduce((s, m) => s + m.toolErrorCount, 0);
+      const errorSessionCount = allMetrics.filter((s) => s.toolErrorCount > 0).length;
+
+      return {
+        totalSessions: allMetrics.length,
+        totalToolCalls,
+        totalToolErrors,
+        globalErrorRate: allMetrics.length > 0 ? errorSessionCount / allMetrics.length : 0,
+      };
+    }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
+  ),
+);
+
+export const getErrorTrend = createServerFn({ method: "GET" }).handler(() =>
+  AppRuntime.runPromise(
+    Effect.gen(function*() {
+      const sessionRows = yield* getAllSessions();
+      const projectNameMap = yield* getProjectNameMap();
+      const allMetrics = yield* computeMetricsForSessions(sessionRows, projectNameMap);
+
+      const errorByDate = new Map<string, { total: number; errors: number }>();
+      for (const s of allMetrics) {
+        const date = new Date(s.createdAt).toISOString().split("T")[0]!;
+        const existing = errorByDate.get(date) ?? { total: 0, errors: 0 };
+        existing.total++;
+        if (s.toolErrorCount > 0) existing.errors++;
+        errorByDate.set(date, existing);
+      }
+
+      return Array.from(errorByDate.entries())
+        .map(([date, data]) => ({
+          date,
+          totalSessions: data.total,
+          errorSessions: data.errors,
+          errorRate: data.total > 0 ? data.errors / data.total : 0,
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
+  ),
+);
+
+export const getToolErrors = createServerFn({ method: "GET" }).handler(() =>
   AppRuntime.runPromise(
     Effect.gen(function*() {
       const db = yield* Database;
-      const svc = yield* SessionService;
+      const sessionRows = yield* getAllSessions();
+      const projectNameMap = yield* getProjectNameMap();
+      const allMetrics = yield* computeMetricsForSessions(sessionRows, projectNameMap);
 
-      const sessionRows = db.select().from(session).all();
-      const projectRows = db.select().from(project).all();
-      const projectNameMap = new Map(projectRows.map((p) => [p.id, p.name]));
-
-      const allSessionMetrics = yield* Effect.all(
-        sessionRows.map((sess) =>
-          svc.computeSessionMetrics({
-            session: sess,
-            projectName: projectNameMap.get(sess.projectId) ?? "Unknown",
-          }),
-        ),
-        { concurrency: 10 },
-      );
-
-      const sessionIds = allSessionMetrics.map((s) => s.id);
+      const sessionIds = allMetrics.map((s) => s.id);
       const eventRows = yield* Effect.try({
         try: () =>
           db
@@ -230,13 +459,10 @@ export const getHealthMetrics = createServerFn({ method: "GET" }).handler(() =>
         catch: (cause) => new SessionError({ cause, message: "Failed to get tool events" }),
       });
 
-      // Global tool counts
       const globalToolCounts = new Map<string, { calls: number; errors: number }>();
-      // Tool counts per project
       const toolByProject = new Map<string, Map<string, { calls: number; errors: number }>>();
-      // Session -> project lookup
       const sessionProjectMap = new Map<string, string>();
-      for (const s of allSessionMetrics) {
+      for (const s of allMetrics) {
         sessionProjectMap.set(s.id, s.projectName);
       }
 
@@ -250,13 +476,11 @@ export const getHealthMetrics = createServerFn({ method: "GET" }).handler(() =>
         if (parsed.role !== "toolResult") continue;
         const name = (parsed.toolName ?? parsed.name ?? "unknown") as string;
 
-        // Global
         const g = globalToolCounts.get(name) ?? { calls: 0, errors: 0 };
         g.calls++;
         if (parsed.isError) g.errors++;
         globalToolCounts.set(name, g);
 
-        // Per project
         const proj = sessionProjectMap.get(row.sessionId) ?? "Unknown";
         let projMap = toolByProject.get(proj);
         if (!projMap) {
@@ -301,15 +525,26 @@ export const getHealthMetrics = createServerFn({ method: "GET" }).handler(() =>
             a.tools.reduce((s, t) => s + t.errorCount, 0),
         );
 
-      // Project session map
-      const projectSessionMap = new Map<string, SessionMetrics[]>();
-      for (const m of allSessionMetrics) {
+      return { mostFailingTools, failingToolsByProject };
+    }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
+  ),
+);
+
+export const getErrorRateByProject = createServerFn({ method: "GET" }).handler(() =>
+  AppRuntime.runPromise(
+    Effect.gen(function*() {
+      const sessionRows = yield* getAllSessions();
+      const projectNameMap = yield* getProjectNameMap();
+      const allMetrics = yield* computeMetricsForSessions(sessionRows, projectNameMap);
+
+      const projectSessionMap = new Map<string, typeof allMetrics>();
+      for (const m of allMetrics) {
         const existing = projectSessionMap.get(m.projectId) ?? [];
         existing.push(m);
         projectSessionMap.set(m.projectId, existing);
       }
 
-      const errorRateByProject = Array.from(projectSessionMap.entries())
+      return Array.from(projectSessionMap.entries())
         .map(([projectId, sessions]) => {
           const errorSessions = sessions.filter((s) => s.toolErrorCount > 0).length;
           return {
@@ -319,42 +554,6 @@ export const getHealthMetrics = createServerFn({ method: "GET" }).handler(() =>
           };
         })
         .sort((a, b) => b.errorRate - a.errorRate);
-
-      // Error trend over time (by day)
-      const errorByDate = new Map<string, { total: number; errors: number }>();
-      for (const s of allSessionMetrics) {
-        const date = new Date(s.createdAt).toISOString().split("T")[0]!;
-        const existing = errorByDate.get(date) ?? { total: 0, errors: 0 };
-        existing.total++;
-        if (s.toolErrorCount > 0) existing.errors++;
-        errorByDate.set(date, existing);
-      }
-      const errorTrend = Array.from(errorByDate.entries())
-        .map(([date, data]) => ({
-          date,
-          totalSessions: data.total,
-          errorSessions: data.errors,
-          errorRate: data.total > 0 ? data.errors / data.total : 0,
-        }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-
-      // Global stats
-      const totalToolCalls = allSessionMetrics.reduce((s, m) => s + m.toolCallCount, 0);
-      const totalToolErrors = allSessionMetrics.reduce((s, m) => s + m.toolErrorCount, 0);
-      const errorSessionCount = allSessionMetrics.filter((s) => s.toolErrorCount > 0).length;
-      const globalErrorRate =
-        allSessionMetrics.length > 0 ? errorSessionCount / allSessionMetrics.length : 0;
-
-      return {
-        totalSessions: allSessionMetrics.length,
-        totalToolCalls,
-        totalToolErrors,
-        globalErrorRate,
-        errorTrend,
-        errorRateByProject,
-        mostFailingTools,
-        failingToolsByProject,
-      };
     }).pipe(Effect.orDie, Effect.provide(Database.layer.pipe(Layer.provide(PlatformLayer)))),
   ),
 );
