@@ -10,12 +10,13 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCost(cost: number): string {
-  if (cost < 0.01) return `$${cost.toFixed(4)}`;
-  if (cost < 1) return `$${cost.toFixed(3)}`;
-  return `$${cost.toFixed(2)}`;
+  if (cost < 0.01) return cost.toFixed(4);
+  if (cost < 1) return cost.toFixed(3);
+  return cost.toFixed(2);
 }
 
 export function formatTokens(tokens: number): string {
+  if (tokens >= 1_000_000_000) return `${(tokens / 1_000_000_000).toFixed(1)}B`;
   if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
   if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}K`;
   return tokens.toString();

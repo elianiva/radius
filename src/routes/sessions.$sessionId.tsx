@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
+
 import {
   useReactTable,
   getCoreRowModel,
@@ -171,7 +172,7 @@ function SessionDetail() {
     <main className="flex min-h-screen flex-col gap-6 p-8">
       <div className="flex items-center gap-4">
         <Link
-          to="/"
+          to="/sessions"
           className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted/30"
         >
           <ArrowLeft className="size-4" />
