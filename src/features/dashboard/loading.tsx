@@ -2,8 +2,6 @@ import { cn } from "~/lib/utils";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 
-// ─── Shimmer overlay (faux content pulse) ───────────────
-
 function Shimmer({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <div
@@ -15,8 +13,6 @@ function Shimmer({ className, style }: { className?: string; style?: React.CSSPr
     />
   );
 }
-
-// ─── Stat card skeleton ──────────────────────────────────
 
 export function StatCardSkeleton() {
   return (
@@ -39,15 +35,7 @@ export function StatCardGridSkeleton({ count = 4 }: { count?: number }) {
   );
 }
 
-// ─── Chart card skeleton ─────────────────────────────────
-
-export function ChartCardSkeleton({
-  rows = 4,
-  className,
-}: {
-  rows?: number;
-  className?: string;
-}) {
+export function ChartCardSkeleton({ rows = 4, className }: { rows?: number; className?: string }) {
   return (
     <Card className={cn("overflow-hidden", className)} aria-hidden="true">
       <CardHeader>
@@ -60,7 +48,11 @@ export function ChartCardSkeleton({
             <Shimmer
               key={i}
               className="flex-1"
-              style={{ height: `${20 + Math.sin(i * 1.2) * 30 + Math.cos(i * 0.7) * 15}px` } as React.CSSProperties}
+              style={
+                {
+                  height: `${20 + Math.sin(i * 1.2) * 30 + Math.cos(i * 0.7) * 15}px`,
+                } as React.CSSProperties
+              }
             />
           ))}
         </div>
@@ -68,8 +60,6 @@ export function ChartCardSkeleton({
     </Card>
   );
 }
-
-// ─── Full-height chart skeleton (no header) ──────────────
 
 export function ChartSkeleton({ className }: { className?: string }) {
   return (
@@ -79,15 +69,17 @@ export function ChartSkeleton({ className }: { className?: string }) {
           <Shimmer
             key={i}
             className="flex-1"
-            style={{ height: `${20 + Math.sin(i * 1.2) * 40 + Math.cos(i * 0.7) * 15}px` } as React.CSSProperties}
+            style={
+              {
+                height: `${20 + Math.sin(i * 1.2) * 40 + Math.cos(i * 0.7) * 15}px`,
+              } as React.CSSProperties
+            }
           />
         ))}
       </div>
     </div>
   );
 }
-
-// ─── Pie chart skeleton ──────────────────────────────────
 
 export function PieChartSkeleton() {
   return (
@@ -96,8 +88,6 @@ export function PieChartSkeleton() {
     </div>
   );
 }
-
-// ─── Table skeleton (faux data rows) ─────────────────────
 
 export function TableSkeleton({ rows = 6, cols = 5 }: { rows?: number; cols?: number }) {
   return (
@@ -123,7 +113,12 @@ export function TableSkeleton({ rows = 6, cols = 5 }: { rows?: number; cols?: nu
                     ) : (
                       <>
                         {j === 0 && <div className="size-5 rounded bg-muted" />}
-                        <Skeleton className={cn("h-2.5", j === 0 ? "w-20" : j === cols - 2 ? "w-12" : "w-14")} />
+                        <Skeleton
+                          className={cn(
+                            "h-2.5",
+                            j === 0 ? "w-20" : j === cols - 2 ? "w-12" : "w-14",
+                          )}
+                        />
                       </>
                     )}
                   </div>
@@ -136,8 +131,6 @@ export function TableSkeleton({ rows = 6, cols = 5 }: { rows?: number; cols?: nu
     </div>
   );
 }
-
-// ─── Project card skeleton ───────────────────────────────
 
 export function ProjectCardSkeleton() {
   return (
@@ -164,8 +157,6 @@ export function ProjectCardSkeleton() {
   );
 }
 
-// ─── Error rate bar skeleton ──────────────────────────────
-
 export function BarListSkeleton({ count = 5 }: { count?: number }) {
   return (
     <div className="space-y-1">
@@ -173,14 +164,15 @@ export function BarListSkeleton({ count = 5 }: { count?: number }) {
         <div key={i} className="flex items-center gap-3 px-2 py-1.5">
           <Skeleton className="h-3 w-24" />
           <Skeleton className="h-3 w-6" />
-          <Shimmer className="h-3.5 flex-1" style={{ width: `${50 + Math.random() * 45}%` } as React.CSSProperties} />
+          <Shimmer
+            className="h-3.5 flex-1"
+            style={{ width: `${50 + Math.random() * 45}%` } as React.CSSProperties}
+          />
         </div>
       ))}
     </div>
   );
 }
-
-// ─── Heatmap skeleton ────────────────────────────────────
 
 export function HeatmapSkeleton() {
   return (
@@ -197,8 +189,6 @@ export function HeatmapSkeleton() {
     </div>
   );
 }
-
-// ─── Page-level loading compositions ─────────────────────
 
 export function OverviewLoading() {
   return (

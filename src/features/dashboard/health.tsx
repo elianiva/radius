@@ -19,7 +19,6 @@ interface HealthProps {
   metrics: HealthMetrics;
 }
 
-// ─── Summary Bar ───────────────────────────────────────────
 
 function SummaryBar({ metrics }: { metrics: HealthMetrics }) {
   const items = [
@@ -71,7 +70,6 @@ function SummaryBar({ metrics }: { metrics: HealthMetrics }) {
   );
 }
 
-// ─── Error Trend ───────────────────────────────────────────
 
 const trendConfig = {
   errorRate: {
@@ -200,7 +198,6 @@ function ErrorRateByProject({ data }: { data: HealthMetrics["errorRateByProject"
   );
 }
 
-// ─── Failing Tools ─────────────────────────────────────────
 
 function ToolErrorBreakdown({
   mostFailingTools,
@@ -292,7 +289,6 @@ function ToolErrorBreakdown({
   );
 }
 
-// ─── Session Tables ────────────────────────────────────────
 
 const sessionColumns: Column<ExtendedSession>[] = [
   {
@@ -481,7 +477,6 @@ function SessionTables() {
   );
 }
 
-// ─── Main Dashboard ────────────────────────────────────────
 
 export function HealthDashboard({ metrics }: HealthProps) {
   return (
