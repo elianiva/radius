@@ -79,16 +79,18 @@ export class SwearMatsService extends Context.Service<
           const lower = content.toLowerCase();
 
           for (const word of SWEAR_WORDS) {
-            if (!lower.includes(word)) continue;
-            const idx = lower.indexOf(word);
-            result.push({
-              sessionId,
-              projectName,
-              sessionTitle,
-              word,
-              context: extractContext(content, idx, word.length),
-              createdAt,
-            });
+            const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const matches = lower.matchAll(new RegExp(`\\b${escaped}\\b`, "gi"));
+            for (const match of matches) {
+              result.push({
+                sessionId,
+                projectName,
+                sessionTitle,
+                word,
+                context: extractContext(content, match.index, word.length),
+                createdAt,
+              });
+            }
           }
         }
 
