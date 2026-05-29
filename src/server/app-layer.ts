@@ -13,6 +13,7 @@ import { HealthService } from "~/features/dashboard/services/health";
 import { SessionsService } from "~/features/dashboard/services/sessions";
 import { ProjectService } from "~/features/dashboard/services/projects";
 import { SwearService } from "~/features/dashboard/services/swear";
+import { WrappedService } from "~/features/wrapped/services/wrapped";
 
 export const PlatformLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer);
 
@@ -26,6 +27,7 @@ const HealthLayer = HealthService.layer.pipe(Layer.provide(CommonDepsLayer));
 const SessionsLayer = SessionsService.layer.pipe(Layer.provide(CommonDepsLayer));
 const ProjectLayer = ProjectService.layer.pipe(Layer.provide(CommonDepsLayer));
 const SwearLayer = SwearService.layer.pipe(Layer.provide(CommonDepsLayer));
+const WrappedLayer = WrappedService.layer.pipe(Layer.provide(CommonDepsLayer));
 
 // Ingestion layer graph
 const PiAdapterLayer = PiAdapterService.layer.pipe(Layer.provide(PlatformLayer));
@@ -50,4 +52,5 @@ export const AppLayer = Layer.mergeAll(
   SessionsLayer,
   ProjectLayer,
   SwearLayer,
+  WrappedLayer,
 );

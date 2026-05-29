@@ -2,7 +2,7 @@ import { Outlet, Link, createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Loader2, Sparkles, BarChart3, Folder, List, HeartPulse, Meh } from "lucide-react";
+import { Loader2, Sparkles, BarChart3, Folder, List, HeartPulse, Meh, ScrollText } from "lucide-react";
 import { importPiSessions } from "~/server/rpc/sessions";
 import { getOverviewCards } from "~/server/rpc/dashboard/overview";
 import type { IngestProgress } from "~/features/sessions/progress";
@@ -81,6 +81,7 @@ function DashboardLayout() {
       void queryClient.invalidateQueries({ queryKey: ["error-trend"] });
       void queryClient.invalidateQueries({ queryKey: ["error-rate-by-project"] });
       void queryClient.invalidateQueries({ queryKey: ["tool-errors"] });
+      void queryClient.invalidateQueries({ queryKey: ["wrapped-data"] });
     },
   });
 
@@ -90,6 +91,7 @@ function DashboardLayout() {
     { to: "/projects", label: "Projects", icon: Folder },
     { to: "/sessions", label: "Sessions", icon: List },
     { to: "/swearing", label: "Swearing", icon: Meh },
+    { to: "/wrapped", label: "Wrapped", icon: ScrollText },
   ] as const;
 
   return (
