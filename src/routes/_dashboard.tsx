@@ -1,5 +1,4 @@
 import { Outlet, Link, createFileRoute } from "@tanstack/react-router";
-import { buttonVariants } from "~/components/ui/button";
 import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { Button } from "~/components/ui/button";
@@ -8,6 +7,7 @@ import { importPiSessions } from "~/server/rpc/sessions";
 import { getOverviewCards } from "~/server/rpc/dashboard";
 import type { IngestProgress } from "~/features/sessions/adapters/pi";
 import { OverviewLoading } from "~/features/dashboard/loading";
+import { AppNav } from "~/components/app-nav";
 
 export const Route = createFileRoute("/_dashboard")({
   component: DashboardLayout,
@@ -109,16 +109,16 @@ function DashboardLayout() {
 
   const links = [
     { to: "/overview", label: "Overview", icon: BarChart3 },
+    { to: "/health", label: "Health", icon: HeartPulse },
     { to: "/projects", label: "Projects", icon: Folder },
     { to: "/sessions", label: "Sessions", icon: List },
-    { to: "/health", label: "Health", icon: HeartPulse },
   ] as const;
 
   return (
     <main className="flex min-h-screen flex-col gap-6 p-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between">
         <Link to="/overview" className="text-2xl font-bold tracking-tight">
-          Dashboard
+          Radius
         </Link>
 
         <Button disabled={importMutation.isPending} onClick={() => importMutation.mutate()}>
@@ -137,20 +137,7 @@ function DashboardLayout() {
         </div>
       ) : (
         <>
-          <nav className="flex gap-2">
-            {links.map(({ to, label, icon: Icon }) => (
-              <Link
-                key={to}
-                to={to}
-                activeOptions={{ exact: true }}
-                className={buttonVariants({ variant: "ghost", size: "sm" })}
-                activeProps={{ className: buttonVariants({ variant: "default", size: "sm" }) }}
-              >
-                <Icon className="size-3.5" />
-                {label}
-              </Link>
-            ))}
-          </nav>
+          <AppNav items={links} />
           <Suspense fallback={<OverviewLoading />}>
             <Outlet />
           </Suspense>
