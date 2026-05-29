@@ -1,6 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { Overview } from "~/features/dashboard/overview";
+import type { DashboardFilters } from "~/features/dashboard/services/filters";
 
 import {
 	getOverviewCards,
@@ -15,40 +17,55 @@ export const Route = createFileRoute("/_dashboard/overview")({
 	component: OverviewRoute,
 });
 
+function useFiltersFromSearch(): DashboardFilters | undefined {
+	const search = useSearch({ strict: false });
+	return useMemo(() => {
+		const f: DashboardFilters = {};
+		let hasAny = false;
+		if (search.dateFrom != null) { f.dateFrom = search.dateFrom; hasAny = true; }
+		if (search.dateTo != null) { f.dateTo = search.dateTo; hasAny = true; }
+		if (search.projectIds?.length) { f.projectIds = search.projectIds; hasAny = true; }
+		if (search.model) { f.model = search.model; hasAny = true; }
+		return hasAny ? f : undefined;
+	}, [search.dateFrom, search.dateTo, search.projectIds, search.model]);
+}
+
 function OverviewRoute() {
+	const filters = useFiltersFromSearch();
+
 	const cards = useSuspenseQuery({
-		queryKey: ["overview-cards"],
-		queryFn: () => getOverviewCards(),
+		queryKey: ["overview-cards", filters],
+		queryFn: () => getOverviewCards({ data: { filters } }),
 		staleTime: 30_000,
 	});
 
 	const costOverTime = useQuery({
-		queryKey: ["cost-over-time"],
-		queryFn: () => getCostOverTime(),
+		queryKey: ["cost-over-time", filters],
+		queryFn: () => getCostOverTime({ data: { filters } }),
 		staleTime: 60_000,
 	});
 
 	const modelUsage = useQuery({
-		queryKey: ["model-usage"],
-		queryFn: () => getModelUsage(),
+		queryKey: ["model-usage", filters],
+		queryFn: () => getModelUsage({ data: { filters } }),
 		staleTime: 60_000,
 	});
 
 	const topProjects = useQuery({
-		queryKey: ["top-projects"],
-		queryFn: () => getTopProjects(),
+		queryKey: ["top-projects", filters],
+		queryFn: () => getTopProjects({ data: { filters } }),
 		staleTime: 120_000,
 	});
 
 	const thinkingLevels = useQuery({
-		queryKey: ["thinking-levels"],
-		queryFn: () => getThinkingLevels(),
+		queryKey: ["thinking-levels", filters],
+		queryFn: () => getThinkingLevels({ data: { filters } }),
 		staleTime: 120_000,
 	});
 
 	const stopReasons = useQuery({
-		queryKey: ["stop-reasons"],
-		queryFn: () => getStopReasons(),
+		queryKey: ["stop-reasons", filters],
+		queryFn: () => getStopReasons({ data: { filters } }),
 		staleTime: 120_000,
 	});
 

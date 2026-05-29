@@ -4,6 +4,7 @@ import { Database } from "~/db/service";
 import { swearEntry } from "~/db/schema";
 import { sql } from "drizzle-orm";
 import type { SwearMention, SwearSummary } from "./swear-types";
+import type { DashboardFilters } from "./filters";
 
 export interface SwearEntryData {
 	sessionId: string;
@@ -20,7 +21,7 @@ export class SwearError extends Data.TaggedError("SwearError")<{
 }> {}
 
 interface SwearServiceShape {
-	readonly getSummary: () => Effect.Effect<SwearSummary, SwearError>;
+	readonly getSummary: (filters?: DashboardFilters) => Effect.Effect<SwearSummary, SwearError>;
 }
 
 export class SwearService extends Context.Service<SwearService, SwearServiceShape>()(
@@ -31,40 +32,55 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
 		Effect.gen(function* () {
 			const db = yield* Database;
 
-			const getSummary = Effect.fn("getSwearMetrics")(function* () {
+			const getSummary = Effect.fn("getSwearMetrics")(function* (filters?: DashboardFilters) {
+				const conditions: ReturnType<typeof sql>[] = [];
+				if (filters?.dateFrom != null) {
+					conditions.push(sql`${swearEntry.createdAt} >= ${filters.dateFrom}`);
+				}
+				if (filters?.dateTo != null) {
+					conditions.push(sql`${swearEntry.createdAt} < ${filters.dateTo}`);
+				}
+				if (filters?.projectIds?.length) {
+					conditions.push(sql`${swearEntry.projectName} IN (${sql.join(filters.projectIds.map((id) => sql`${id}`), sql`,`)})`);
+				}
+
 				const countRows = yield* Effect.try({
-					try: () =>
-						db
+					try: () => {
+						const q = db
 							.select({
 								totalMentions: sql<number>`count(*)`,
 								uniqueSessions: sql<number>`count(distinct ${swearEntry.sessionId})`,
 								uniqueProjects: sql<number>`count(distinct ${swearEntry.projectName})`,
 							})
-							.from(swearEntry)
-							.all(),
+							.from(swearEntry);
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new SwearError({ cause, message: "Failed to count swear entries" }),
 				});
 				const counts = countRows[0]!;
 
 				const allWordRows = yield* Effect.try({
-					try: () =>
-						db
+					try: () => {
+						const q = db
 							.select({
 								word: swearEntry.word,
 								count: sql<number>`count(*)`,
 							})
 							.from(swearEntry)
 							.groupBy(swearEntry.word)
-							.orderBy(sql`count(*) desc`)
-							.all(),
+							.orderBy(sql`count(*) desc`);
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) =>
 						new SwearError({ cause, message: "Failed to get all swear word frequencies" }),
 				});
 				const allWordFrequencies = allWordRows.map((r) => ({ word: r.word, count: r.count }));
 
 				const wordRows = yield* Effect.try({
-					try: () =>
-						db
+					try: () => {
+						const q = db
 							.select({
 								word: swearEntry.word,
 								count: sql<number>`count(*)`,
@@ -72,30 +88,34 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
 							.from(swearEntry)
 							.groupBy(swearEntry.word)
 							.orderBy(sql`count(*) desc`)
-							.limit(10)
-							.all(),
+							.limit(10);
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new SwearError({ cause, message: "Failed to get top swear words" }),
 				});
 				const topWords = wordRows.map((r) => ({ word: r.word, count: r.count }));
 
 				const trendRows = yield* Effect.try({
-					try: () =>
-						db
+					try: () => {
+						const q = db
 							.select({
 								date: sql<string>`date(${swearEntry.createdAt} / 1000, 'unixepoch')`,
 								count: sql<number>`count(*)`,
 							})
 							.from(swearEntry)
 							.groupBy(sql`date(${swearEntry.createdAt} / 1000, 'unixepoch')`)
-							.orderBy(sql`date(${swearEntry.createdAt} / 1000, 'unixepoch')`)
-							.all(),
+							.orderBy(sql`date(${swearEntry.createdAt} / 1000, 'unixepoch')`);
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new SwearError({ cause, message: "Failed to get swear trend" }),
 				});
 				const swearTrend = trendRows.map((r) => ({ date: r.date, count: r.count }));
 
 				const projectRows = yield* Effect.try({
-					try: () =>
-						db
+					try: () => {
+						const q = db
 							.select({
 								project: swearEntry.projectName,
 								count: sql<number>`count(*)`,
@@ -103,8 +123,10 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
 							})
 							.from(swearEntry)
 							.groupBy(swearEntry.projectName)
-							.orderBy(sql`count(*) desc`)
-							.all(),
+							.orderBy(sql`count(*) desc`);
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new SwearError({ cause, message: "Failed to get swear by project" }),
 				});
 				const swearByProject = projectRows.map((r) => ({
@@ -114,8 +136,8 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
 				}));
 
 				const sessionRows = yield* Effect.try({
-					try: () =>
-						db
+					try: () => {
+						const q = db
 							.select({
 								sessionId: swearEntry.sessionId,
 								mentionCount: sql<number>`count(*)`,
@@ -123,8 +145,10 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
 							.from(swearEntry)
 							.groupBy(swearEntry.sessionId)
 							.orderBy(sql`count(*) desc`)
-							.limit(10)
-							.all(),
+							.limit(10);
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new SwearError({ cause, message: "Failed to get top swear sessions" }),
 				});
 

@@ -3,6 +3,8 @@ import { Context, Data, Effect, Layer } from "effect";
 import { Database } from "~/db/service";
 import { session, project, sessionSummary } from "~/db/schema";
 import { eq, sql } from "drizzle-orm";
+import type { DashboardFilters } from "./filters";
+import { applySummaryFilters } from "./filters";
 
 export class SessionsError extends Data.TaggedError("SessionsError")<{
 	readonly cause: unknown;
@@ -15,6 +17,7 @@ interface SessionsServiceShape {
 		sortBy?: string;
 		sortDir?: "asc" | "desc";
 		cursor?: string;
+		filters?: DashboardFilters;
 	}) => Effect.Effect<PaginatedSessions, SessionsError>;
 }
 
@@ -54,8 +57,8 @@ export class SessionsService extends Context.Service<SessionsService, SessionsSe
 				sortBy?: string;
 				sortDir?: "asc" | "desc";
 				cursor?: string;
+				filters?: DashboardFilters;
 			}) {
-				// Determine sort column and direction from session_summary
 				const sortCol =
 					params.sortBy === "duration"
 						? sessionSummary.duration
@@ -93,6 +96,9 @@ export class SessionsService extends Context.Service<SessionsService, SessionsSe
 							.leftJoin(project, eq(sessionSummary.projectId, project.id))
 							.orderBy(sql`${sortCol} ${dir}`)
 							.limit(PAGE_SIZE + 1);
+
+						const filterConditions = applySummaryFilters(params.filters);
+						for (const c of filterConditions) q.where(c);
 
 						if (params.cursor) {
 							q.where(sql`${sessionSummary.id} < ${params.cursor}`);

@@ -1,6 +1,6 @@
 import { Outlet, Link, createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Suspense, useState, useCallback } from "react";
+import { useSuspenseQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { Suspense, useState, useCallback, useMemo } from "react";
 import { Button } from "~/components/ui/button";
 import {
 	Dialog,
@@ -22,11 +22,50 @@ import {
 } from "lucide-react";
 import { importPiSessions, importOpencodeSessions } from "~/server/rpc/sessions";
 import { getOverviewCards } from "~/server/rpc/dashboard/overview";
+import { getProjectNames, getModelNames } from "~/server/rpc/dashboard/filters";
 import type { IngestProgress } from "~/features/sessions/progress";
+import type { DashboardFilters } from "~/features/dashboard/services/filters";
 import { OverviewLoading } from "~/features/dashboard/loading";
 import { AppNav } from "~/components/app-nav";
+import { FilterBar } from "~/components/filter-bar";
+
+interface DashboardSearch {
+	dateFrom?: number;
+	dateTo?: number;
+	projectIds?: string[];
+	model?: string;
+}
+
+function parseSearch(raw: Record<string, unknown>): DashboardSearch {
+	const result: DashboardSearch = {};
+	if (typeof raw.dateFrom === "string") {
+		const n = Number(raw.dateFrom);
+		if (!Number.isNaN(n)) result.dateFrom = n;
+	}
+	if (typeof raw.dateTo === "string") {
+		const n = Number(raw.dateTo);
+		if (!Number.isNaN(n)) result.dateTo = n;
+	}
+	if (typeof raw.projectIds === "string" && raw.projectIds.length > 0) {
+		result.projectIds = raw.projectIds.split(",");
+	}
+	if (typeof raw.model === "string" && raw.model.length > 0) {
+		result.model = raw.model;
+	}
+	return result;
+}
+
+function filtersToParams(filters: DashboardFilters): Record<string, string | undefined> {
+	return {
+		dateFrom: filters.dateFrom != null ? String(filters.dateFrom) : undefined,
+		dateTo: filters.dateTo != null ? String(filters.dateTo) : undefined,
+		projectIds: filters.projectIds?.length ? filters.projectIds.join(",") : undefined,
+		model: filters.model || undefined,
+	};
+}
 
 export const Route = createFileRoute("/_dashboard")({
+	validateSearch: parseSearch,
 	component: DashboardLayout,
 });
 
@@ -144,6 +183,8 @@ function ImportDialog({
 
 function DashboardLayout() {
 	const queryClient = useQueryClient();
+	const search = Route.useSearch();
+	const navigate = Route.useNavigate();
 	const [ingestProgress, setIngestProgress] = useState<IngestProgress | null>(null);
 
 	const { data: summary } = useSuspenseQuery({
@@ -151,6 +192,35 @@ function DashboardLayout() {
 		queryFn: () => getOverviewCards(),
 		staleTime: 30_000,
 	});
+
+	const filters: DashboardFilters = useMemo(
+		() => ({
+			dateFrom: search.dateFrom,
+			dateTo: search.dateTo,
+			projectIds: search.projectIds,
+			model: search.model,
+		}),
+		[search.dateFrom, search.dateTo, search.projectIds, search.model],
+	);
+
+	const { data: projectNames } = useQuery({
+		queryKey: ["project-names"],
+		queryFn: () => getProjectNames(),
+		staleTime: 120_000,
+	});
+
+	const { data: modelNames } = useQuery({
+		queryKey: ["model-names"],
+		queryFn: () => getModelNames(),
+		staleTime: 120_000,
+	});
+
+	const handleFiltersChange = useCallback(
+		(next: DashboardFilters) => {
+			void navigate({ search: filtersToParams(next) as Record<string, string>, replace: true });
+		},
+		[navigate],
+	);
 
 	const importMutation = useMutation({
 		mutationFn: async ({ doPi, doOpencode }: { doPi: boolean; doOpencode: boolean }) => {
@@ -222,6 +292,12 @@ function DashboardLayout() {
 				</div>
 			) : (
 				<>
+					<FilterBar
+						filters={filters}
+						onFiltersChange={handleFiltersChange}
+						projects={projectNames ?? []}
+						models={modelNames ?? []}
+					/>
 					<AppNav items={links} />
 					<Suspense fallback={<OverviewLoading />}>
 						<Outlet />

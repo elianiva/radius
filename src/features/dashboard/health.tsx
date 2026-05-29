@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useContext, createContext } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import {
 	ChartContainer,
@@ -9,6 +9,7 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Line, LineChart } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import type { ToolMetrics, ExtendedSession, PaginatedSessions } from "./types";
+import type { DashboardFilters } from "./services/filters";
 import { AlertTriangle, Wrench, DollarSign, Coins, Bug, Activity, TrendingUp } from "lucide-react";
 import { formatCost, formatTokens, formatDuration } from "~/lib/utils";
 import { Badge } from "~/components/ui/badge";
@@ -22,7 +23,10 @@ import {
 } from "~/server/rpc/dashboard/health";
 import { StatCardGridSkeleton, ChartCardSkeleton, BarListSkeleton } from "./loading";
 
+const FilterContext = createContext<DashboardFilters | undefined>(undefined);
+
 interface HealthProps {
+	filters?: DashboardFilters;
 	summary?: {
 		totalSessions: number;
 		totalToolCalls: number;
@@ -410,6 +414,7 @@ interface SessionTableCardProps {
 }
 
 function SessionTableCard({ tab }: SessionTableCardProps) {
+	const filters = useContext(FilterContext);
 	const [cursorStack, setCursorStack] = useState<(string | undefined)[]>([undefined]);
 	const [cursorIndex, setCursorIndex] = useState(0);
 	const currentCursor = cursorStack[cursorIndex];
@@ -428,8 +433,8 @@ function SessionTableCard({ tab }: SessionTableCardProps) {
 	}[tab];
 
 	const { data, isFetching } = useQuery<PaginatedSessions>({
-		queryKey: [queryKey, currentCursor],
-		queryFn: () => queryFn({ data: { cursor: currentCursor } }),
+		queryKey: [queryKey, filters, currentCursor],
+		queryFn: () => queryFn({ data: { cursor: currentCursor, filters } }),
 		staleTime: 60_000,
 	});
 
@@ -508,6 +513,7 @@ function SessionTables() {
 }
 
 export function HealthDashboard({
+	filters,
 	summary,
 	errorTrend,
 	errorRateByProject,
@@ -515,6 +521,7 @@ export function HealthDashboard({
 	isLoading = {},
 }: HealthProps) {
 	return (
+		<FilterContext.Provider value={filters}>
 		<div className="flex flex-col gap-4">
 			{isLoading.summary ? <StatCardGridSkeleton count={5} /> : <SummaryBar summary={summary!} />}
 
@@ -549,5 +556,6 @@ export function HealthDashboard({
 
 			<SessionTables />
 		</div>
+		</FilterContext.Provider>
 	);
 }

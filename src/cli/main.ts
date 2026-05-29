@@ -1,46 +1,21 @@
 import { Command, Flag } from "effect/unstable/cli";
-import { Effect, Option, pipe } from "effect";
+import { Effect, Option, Path, pipe } from "effect";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
-import { join, dirname } from "node:path";
-import { homedir, platform } from "node:os";
+import { dirname, join } from "node:path";
 import { existsSync, readFileSync, mkdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { drizzle } from "drizzle-orm/node-sqlite";
 import { migrate } from "drizzle-orm/node-sqlite/migrator";
-
-// ---------------------------------------------------------------------------
-// XDG data directory
-// ---------------------------------------------------------------------------
-
-const resolveDbDir = (explicit: string | undefined): string => {
-	if (explicit) return explicit;
-
-	const home = homedir();
-	const plat = platform();
-
-	if (plat === "darwin") {
-		return join(home, "Library", "Application Support", "radius");
-	}
-
-	if (plat === "win32") {
-		return join(process.env.APPDATA || join(home, "AppData", "Roaming"), "radius");
-	}
-
-	const xdgData = process.env.XDG_DATA_HOME;
-	if (xdgData && xdgData.length > 0) {
-		return join(xdgData, "radius");
-	}
-	return join(home, ".local", "share", "radius");
-};
+import { resolveDbDir } from "~/lib/db";
 
 // ---------------------------------------------------------------------------
 // Migration
 // ---------------------------------------------------------------------------
 
-const runMigration = (dbDir: string): void => {
-	const dbPath = join(dbDir, "sessions.db");
+const runMigration = (path: Path.Path, dbDir: string): void => {
+	const dbPath = path.join(dbDir, "sessions.db");
 	mkdirSync(dbDir, { recursive: true });
 
 	const sqlite = new DatabaseSync(dbPath);
@@ -106,9 +81,11 @@ const cmd = Command.make(
 	},
 	({ port, dbDir }) =>
 		Effect.gen(function* () {
-			const resolvedDbDir = resolveDbDir(Option.isSome(dbDir) ? dbDir.value : undefined);
+			const path = yield* Path.Path;
+			const explicit = Option.getOrUndefined(dbDir);
+			const resolvedDbDir = explicit !== undefined ? explicit : yield* resolveDbDir;
 
-			yield* Effect.sync(() => runMigration(resolvedDbDir));
+			yield* Effect.sync(() => runMigration(path, resolvedDbDir));
 
 			const httpServer = createServer(async (req, res) => {
 				try {

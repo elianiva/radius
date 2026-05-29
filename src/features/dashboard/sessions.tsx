@@ -9,6 +9,7 @@ import { Clock, MessageSquare, AlertTriangle, Coins, Table2, Grid3x3 } from "luc
 import { formatCost, formatTokens, formatDuration } from "~/lib/utils";
 import { SessionsTableLoading } from "./loading";
 import { DataTable, type Column } from "~/components/ui/data-table";
+import type { DashboardFilters } from "./services/filters";
 import type { ExtendedSession } from "./types";
 
 type SortKey =
@@ -114,15 +115,15 @@ const sessionColumns: Column<ExtendedSession>[] = [
 	},
 ];
 
-export function Sessions() {
+export function Sessions({ filters }: { filters?: DashboardFilters }) {
 	return (
 		<Suspense fallback={<SessionsTableLoading rows={10} />}>
-			<SessionsContent />
+			<SessionsContent filters={filters} />
 		</Suspense>
 	);
 }
 
-function SessionsContent() {
+function SessionsContent({ filters }: { filters?: DashboardFilters }) {
 	const router = useRouter();
 	const [view, setView] = useState<"grid" | "table">("table");
 	const [searchQuery, setSearchQuery] = useState("");
@@ -134,7 +135,7 @@ function SessionsContent() {
 	const sort = SORT_DIRS[sortBy];
 
 	const { data, isFetching } = useQuery({
-		queryKey: ["sessions-list", searchQuery, sort.sortBy, sort.sortDir, currentCursor],
+		queryKey: ["sessions-list", searchQuery, sort.sortBy, sort.sortDir, currentCursor, filters],
 		queryFn: () =>
 			getSessionsList({
 				data: {
@@ -142,6 +143,7 @@ function SessionsContent() {
 					sortBy: sort.sortBy,
 					sortDir: sort.sortDir,
 					cursor: currentCursor,
+					filters,
 				},
 			}),
 		staleTime: 60_000,
