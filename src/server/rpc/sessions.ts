@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { Stream } from "effect";
 
 import { AppRuntime } from "../app-runtime";
@@ -6,7 +7,8 @@ import { PiAdapterService, type IngestProgress } from "~/features/sessions/adapt
 import { SessionService } from "~/features/sessions/services/session";
 
 export const importPiSessions = createServerFn({ method: "POST" }).handler(async function* () {
-  const stream = await AppRuntime.runPromise(PiAdapterService.use((pi) => pi.ingest));
+  const { signal } = getRequest();
+  const stream = await AppRuntime.runPromise(PiAdapterService.use((pi) => pi.ingest), { signal });
   const context = await AppRuntime.context();
 
   const readable = Stream.toReadableStreamWith(stream, context);
@@ -26,11 +28,11 @@ export const importPiSessions = createServerFn({ method: "POST" }).handler(async
 export const getSessionEvents = createServerFn({ method: "GET" })
   .inputValidator((v: unknown) => v as { sessionId: string })
   .handler(({ data }) =>
-    AppRuntime.runPromise(SessionService.use((svc) => svc.getEvents({ sessionId: data.sessionId }))),
+    AppRuntime.runPromise(SessionService.use((svc) => svc.getEvents({ sessionId: data.sessionId })), { signal: getRequest().signal }),
   );
 
 export const getSessionsList = createServerFn({ method: "GET" })
   .inputValidator((v: unknown) => v as { cursor?: string })
   .handler(({ data }) =>
-    AppRuntime.runPromise(SessionService.use((svc) => svc.list({ cursor: data.cursor }))),
+    AppRuntime.runPromise(SessionService.use((svc) => svc.list({ cursor: data.cursor })), { signal: getRequest().signal }),
   );
