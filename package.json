@@ -15,7 +15,8 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vp dev --port 3000",
-		"build": "vp build && node -e \"fs.cpSync('src/db/migrations','dist/db/migrations',{recursive:true})\"",
+		"build": "vp build",
+		"postbuild": "node -e \"fs.cpSync('src/db/migrations','dist/db/migrations',{recursive:true})\"",
 		"pack": "vp pack",
 		"preview": "vp preview",
 		"start": "node bin/radius.mjs",
