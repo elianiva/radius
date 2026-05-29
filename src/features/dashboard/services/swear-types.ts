@@ -59,6 +59,7 @@ export interface SwearSummary {
   totalSessions: number;
   uniqueProjects: number;
   topWords: { word: string; count: number }[];
+  allWordFrequencies: { word: string; count: number }[];
   topSessions: SwearMention[];
   swearTrend: { date: string; count: number }[];
   swearByProject: { project: string; count: number; sessions: number }[];

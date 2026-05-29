@@ -46,6 +46,21 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
         });
         const counts = countRows[0]!;
 
+        const allWordRows = yield* Effect.try({
+          try: () =>
+            db
+              .select({
+                word: swearEntry.word,
+                count: sql<number>`count(*)`,
+              })
+              .from(swearEntry)
+              .groupBy(swearEntry.word)
+              .orderBy(sql`count(*) desc`)
+              .all(),
+          catch: (cause) => new SwearError({ cause, message: "Failed to get all swear word frequencies" }),
+        });
+        const allWordFrequencies = allWordRows.map((r) => ({ word: r.word, count: r.count }));
+
         const wordRows = yield* Effect.try({
           try: () =>
             db
@@ -156,6 +171,7 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
           topSessions,
           swearTrend,
           swearByProject,
+          allWordFrequencies,
         };
       });
 

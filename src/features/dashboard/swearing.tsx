@@ -6,12 +6,33 @@ import {
   type ChartConfig,
 } from "~/components/ui/chart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Line, LineChart, Cell } from "recharts";
-import { AlertTriangle, BarChart3, MessageSquare, TrendingUp, Users, Hash } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Line,
+  LineChart,
+  Cell,
+} from "recharts";
+import {
+  AlertTriangle,
+  BarChart3,
+  MessageSquare,
+  TrendingUp,
+  Users,
+  Hash,
+} from "lucide-react";
 import { SWEAR_WORDS } from "./services/swear-types";
 import type { SwearSummary, SwearMention } from "./services/swear-types";
 import { Badge } from "~/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "~/components/ui/tooltip";
 
 interface SwearingDashboardProps {
   data: SwearSummary | undefined;
@@ -241,39 +262,81 @@ function TopWords({ data }: { data: SwearSummary }) {
   );
 }
 
-const SWEAR_COLORS = [
-  "var(--chart-1)",
-  "var(--chart-3)",
-  "var(--chart-2)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-];
+function SwearWordList({ frequencies }: { frequencies: { word: string; count: number }[] }) {
+  const freqMap = new Map(frequencies.map((f) => [f.word, f.count]));
+  const maxCount = frequencies.reduce((max, f) => Math.max(max, f.count), 0);
 
-function SwearWordList() {
+  const sorted = [...SWEAR_WORDS].sort((a, b) => {
+    const aCount = freqMap.get(a) ?? 0;
+    const bCount = freqMap.get(b) ?? 0;
+    return bCount - aCount;
+  });
+
+  if (maxCount === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Hash className="size-4 text-muted-foreground" />
+            Swear Word Index
+          </CardTitle>
+          <CardDescription>All tracked swear words</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="flex h-20 items-center justify-center text-xs text-muted-foreground">
+            No swearing detected
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const PINKS = [
+    "bg-pink-100/40",
+    "bg-pink-200/70",
+    "bg-pink-300/80",
+    "bg-pink-400/80",
+    "bg-pink-500",
+  ] as const;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <AlertTriangle className="size-4 text-muted-foreground" />
+          <Hash className="size-4 text-muted-foreground" />
           Swear Word Index
         </CardTitle>
-        <CardDescription>All tracked swear words</CardDescription>
+        <CardDescription>All tracked swear words, sorted by frequency</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap gap-1.5">
-          {SWEAR_WORDS.map((word, i) => (
-            <Badge
-              key={word}
-              variant="secondary"
-              className="font-mono text-[10px] lowercase"
-              style={{
-                backgroundColor: `color-mix(in srgb, ${SWEAR_COLORS[i % SWEAR_COLORS.length]} 10%, transparent)`,
-                color: SWEAR_COLORS[i % SWEAR_COLORS.length],
-              }}
-            >
-              {word}
-            </Badge>
-          ))}
+          {sorted.map((word) => {
+            const count = freqMap.get(word) ?? 0;
+            const intensity = count / maxCount;
+            const level = intensity === 0 ? 0 : Math.min(4, Math.ceil(intensity * 4));
+
+            return (
+              <Tooltip key={word}>
+                <TooltipTrigger
+                  render={(triggerProps) => (
+                    <span
+                      {...triggerProps}
+                      className={[
+                        triggerProps.className ?? "",
+                        "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-none border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap font-mono text-[10px] lowercase cursor-default",
+                        PINKS[level],
+                      ].join(" ")}
+                    >
+                      {word}
+                    </span>
+                  )}
+                />
+                <TooltipContent side="top" align="center">
+                  <span className="font-mono tabular-nums">{count}</span> time{count === 1 ? "" : "s"}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
         </div>
       </CardContent>
     </Card>
@@ -415,7 +478,7 @@ export function SwearingDashboard({ data, isLoading }: SwearingDashboardProps) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <TopWords data={data} />
-        <SwearWordList />
+        <SwearWordList frequencies={data.allWordFrequencies} />
       </div>
 
       <RecentSwears data={data} />
