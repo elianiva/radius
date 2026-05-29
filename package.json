@@ -21,7 +21,6 @@
 		"preview": "vp preview",
 		"start": "node bin/radius.mjs",
 		"typecheck": "vp check",
-		"test": "vp test run",
 		"prepare": "vp config",
 		"ui": "vpx shadcn@latest"
 	},

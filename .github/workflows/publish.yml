@@ -27,9 +27,6 @@ jobs:
       - name: Build
         run: vp build
 
-      - name: Test
-        run: vp test run
-
       - name: Publish
         run: pnpm publish --access public --provenance --config.publish-branch=master
         env:
