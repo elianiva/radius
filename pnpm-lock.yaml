@@ -21,9 +21,6 @@ importers:
       '@effect/platform-node':
         specifier: 4.0.0-beta.74
         version: 4.0.0-beta.74(effect@4.0.0-beta.73)(ioredis@5.11.0)
-      '@faker-js/faker':
-        specifier: ^10.3.0
-        version: 10.4.0
       '@fontsource-variable/oxanium':
         specifier: ^5.2.8
         version: 5.2.8
@@ -33,12 +30,6 @@ importers:
       '@remixicon/react':
         specifier: ^4.9.0
         version: 4.9.0(react@19.2.6)
-      '@tailwindcss/vite':
-        specifier: ^4.1.18
-        version: 4.3.0(@voidzero-dev/vite-plus-core@0.1.22(@types/node@22.19.19)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))
-      '@tanstack/match-sorter-utils':
-        specifier: latest
-        version: 8.19.4
       '@tanstack/react-query':
         specifier: ^5.100.14
         version: 5.100.14(react@19.2.6)
@@ -51,9 +42,6 @@ importers:
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@tanstack/router-plugin':
-        specifier: ^1.132.0
-        version: 1.168.11(@tanstack/react-router@1.170.8(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@voidzero-dev/vite-plus-core@0.1.22(@types/node@22.19.19)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -63,9 +51,6 @@ importers:
       dayjs:
         specifier: ^1.11.21
         version: 1.11.21
-      drizzle-kit:
-        specifier: 1.0.0-beta.22
-        version: 1.0.0-beta.22
       drizzle-orm:
         specifier: 1.0.0-beta.22
         version: 1.0.0-beta.22(zod@3.25.76)
@@ -90,15 +75,9 @@ importers:
       recharts:
         specifier: 3.7.0
         version: 3.7.0(patch_hash=074034836f6ee41f04a69f96ae6bc048b3d42ac949c9d225a3c90f0243cb5d59)(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react-is@17.0.2)(react@19.2.6)(redux@5.0.1)
-      shadcn:
-        specifier: ^4.8.2
-        version: 4.8.2(@types/node@22.19.19)(typescript@6.0.3)
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0
-      tailwindcss:
-        specifier: ^4.1.18
-        version: 4.3.0
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
@@ -109,6 +88,15 @@ importers:
       '@tailwindcss/typography':
         specifier: ^0.5.16
         version: 0.5.19(tailwindcss@4.3.0)
+      '@tailwindcss/vite':
+        specifier: ^4.1.18
+        version: 4.3.0(@voidzero-dev/vite-plus-core@0.1.22(@types/node@22.19.19)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))
+      '@tanstack/match-sorter-utils':
+        specifier: latest
+        version: 8.19.4
+      '@tanstack/router-plugin':
+        specifier: ^1.132.0
+        version: 1.168.11(@tanstack/react-router@1.170.8(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@voidzero-dev/vite-plus-core@0.1.22(@types/node@22.19.19)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))
       '@testing-library/dom':
         specifier: ^10.4.1
         version: 10.4.1
@@ -130,9 +118,18 @@ importers:
       babel-plugin-react-compiler:
         specifier: ^1.0.0
         version: 1.0.0
+      drizzle-kit:
+        specifier: 1.0.0-beta.22
+        version: 1.0.0-beta.22
       jsdom:
         specifier: ^28.1.0
         version: 28.1.0(@noble/hashes@1.8.0)
+      shadcn:
+        specifier: ^4.8.2
+        version: 4.8.2(@types/node@22.19.19)(typescript@6.0.3)
+      tailwindcss:
+        specifier: ^4.1.18
+        version: 4.3.0
       typescript:
         specifier: ^6.0.2
         version: 6.0.3
@@ -568,10 +565,6 @@ packages:
     peerDependenciesMeta:
       '@noble/hashes':
         optional: true
-
-  '@faker-js/faker@10.4.0':
-    resolution: {integrity: sha512-sDBWI3yLy8EcDzgobvJTWq1MJYzAkQdpjXuPukga9wXonhpMRvd1Izuo2Qgwey2OiEoRIBr35RMU9HJRoOHzpw==}
-    engines: {node: ^20.19.0 || ^22.13.0 || ^23.5.0 || >=24.0.0, npm: '>=10'}
 
   '@floating-ui/core@1.7.5':
     resolution: {integrity: sha512-1Ih4WTWyw0+lKyFMcBHGbb5U5FtuHJuujoyyr5zTaWS5EYMeT6Jb2AuDeftsCsEuchO+mM2ij5+q9crhydzLhQ==}
@@ -4029,8 +4022,6 @@ snapshots:
   '@exodus/bytes@1.15.1(@noble/hashes@1.8.0)':
     optionalDependencies:
       '@noble/hashes': 1.8.0
-
-  '@faker-js/faker@10.4.0': {}
 
   '@floating-ui/core@1.7.5':
     dependencies:

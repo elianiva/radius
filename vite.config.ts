@@ -23,6 +23,12 @@ const config = defineConfig({
     viteReact(),
     babel({ presets: [reactCompilerPreset()] }),
   ],
+  pack: {
+    entry: { radius: "src/cli/main.ts" },
+    format: ["esm"],
+    outDir: "bin",
+    clean: true,
+  },
 });
 
 export default config;
