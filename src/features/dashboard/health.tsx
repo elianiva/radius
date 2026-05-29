@@ -19,7 +19,7 @@ import {
   getExpensiveSessions,
   getHighTokenSessions,
   getErrorProneSessions,
-} from "~/server/rpc/dashboard";
+} from "~/server/rpc/dashboard/health";
 import { StatCardGridSkeleton, ChartCardSkeleton, BarListSkeleton } from "./loading";
 
 interface HealthProps {

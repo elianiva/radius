@@ -6,7 +6,7 @@ import {
   getErrorTrend,
   getToolErrors,
   getErrorRateByProject,
-} from "~/server/rpc/dashboard";
+} from "~/server/rpc/dashboard/health";
 
 export const Route = createFileRoute("/_dashboard/health")({
   component: HealthRoute,

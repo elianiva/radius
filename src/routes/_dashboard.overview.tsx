@@ -9,7 +9,7 @@ import {
   getTopProjects,
   getThinkingLevels,
   getStopReasons,
-} from "~/server/rpc/dashboard";
+} from "~/server/rpc/dashboard/overview";
 
 export const Route = createFileRoute("/_dashboard/overview")({
   component: OverviewRoute,
