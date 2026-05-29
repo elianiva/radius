@@ -71,7 +71,6 @@ function buildSession(
   }
 
   const entries: Entry[] = [];
-  const title = sessionRow.title ?? undefined;
 
   for (const msg of msgRows) {
     const msgData = JSON.parse(msg.data) as Record<string, unknown>;
@@ -133,12 +132,12 @@ function buildSession(
       e.type === "message" &&
       (e.message as Record<string, unknown>)?.role === "user",
   );
-  let derivedTitle = title;
-  if (!derivedTitle && firstUserMessage) {
+  let title = sessionRow.title ?? undefined;
+  if (!title && firstUserMessage) {
     const msgData = firstUserMessage.message as Record<string, unknown> | undefined;
     if (msgData) {
       const content = msgData.content as string | undefined;
-      if (content) derivedTitle = content.slice(0, 80);
+      if (content) title = content.slice(0, 80);
     }
   }
 
@@ -151,7 +150,7 @@ function buildSession(
       cwd,
     },
     entries,
-    title: derivedTitle,
+    title,
     projectName,
     eventCount,
     sessionEventCount,
@@ -161,7 +160,9 @@ function buildSession(
 export class OpencodeAdapterService extends Context.Service<
   OpencodeAdapterService,
   {
-    readonly parseAll: Effect.Effect<readonly ParsedSession[], OpencodeError>;
+    readonly forEachSession: (
+      f: (parsed: ParsedSession, index: number, total: number) => Effect.Effect<void>,
+    ) => Effect.Effect<void, OpencodeError>;
   }
 >()("radius/OpencodeAdapterService") {
   static readonly layer = Layer.effect(
@@ -169,68 +170,88 @@ export class OpencodeAdapterService extends Context.Service<
     Effect.gen(function* () {
       const dbPath = join(homedir(), ".local/share/opencode/opencode.db");
 
-      const parseAll = Effect.try({
-        try: () => {
-          const db = new DatabaseSync(dbPath, { readOnly: true });
+      const forEachSession = (
+        f: (parsed: ParsedSession, index: number, total: number) => Effect.Effect<void>,
+      ) =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const db = new DatabaseSync(dbPath, { readOnly: true });
+            yield* Effect.addFinalizer(() => Effect.sync(() => db.close()));
 
-          try {
-            const sessionRows = db
-              .prepare(
-                `SELECT id, project_id, title, directory, time_created
-                 FROM session ORDER BY time_created ASC`,
-              )
-              .all() as Array<{
-                id: string; project_id: string; title: string | null;
-                directory: string | null; time_created: number;
-              }>;
+            const { rows, projectMap, msgStmt, partStmt } = yield* Effect.try({
+              try: () => {
+                const sessionRows = db
+                  .prepare(
+                    `SELECT id, project_id, title, directory, time_created
+                     FROM session ORDER BY time_created ASC`,
+                  )
+                  .all() as Array<{
+                    id: string; project_id: string; title: string | null;
+                    directory: string | null; time_created: number;
+                  }>;
 
-            if (sessionRows.length === 0) return [];
+                if (sessionRows.length === 0)
+                  return { rows: [] as typeof sessionRows, projectMap: new Map(), msgStmt: null as null, partStmt: null as null };
 
-            const projectIds = [...new Set(sessionRows.map((s) => s.project_id))];
-            const projectRows =
-              projectIds.length > 0
-                ? (db
-                    .prepare(
-                      `SELECT id, name, worktree FROM project WHERE id IN (${projectIds.map(() => "?").join(",")})`,
-                    )
-                    .all(...projectIds) as Array<{
-                      id: string; name: string | null; worktree: string | null;
-                    }>)
-                : [];
-            const projectMap = new Map(projectRows.map((p) => [p.id, p] as const));
+                const projectIds = [...new Set(sessionRows.map((s) => s.project_id))];
+                const projectRows =
+                  projectIds.length > 0
+                    ? (db
+                        .prepare(
+                          `SELECT id, name, worktree FROM project WHERE id IN (${projectIds.map(() => "?").join(",")})`,
+                        )
+                        .all(...projectIds) as Array<{
+                          id: string; name: string | null; worktree: string | null;
+                        }>)
+                    : [];
+                const projectMap = new Map(projectRows.map((p) => [p.id, p] as const));
 
-            const msgStmt = db.prepare(
-              "SELECT id, time_created, data FROM message WHERE session_id = ? ORDER BY time_created ASC",
-            );
-            const partStmt = db.prepare(
-              "SELECT id, message_id, time_created, data FROM part WHERE session_id = ? ORDER BY time_created ASC",
-            );
+                const msgStmt = db.prepare(
+                  "SELECT id, time_created, data FROM message WHERE session_id = ? ORDER BY time_created ASC",
+                );
+                const partStmt = db.prepare(
+                  "SELECT id, message_id, time_created, data FROM part WHERE session_id = ? ORDER BY time_created ASC",
+                );
 
-            const results: ParsedSession[] = [];
-            for (const sessionRow of sessionRows) {
-              try {
-                const project = projectMap.get(sessionRow.project_id);
-                const msgs = msgStmt.all(sessionRow.id) as Array<{
-                  id: string; time_created: number; data: string;
-                }>;
-                const parts = partStmt.all(sessionRow.id) as Array<{
-                  id: string; message_id: string; time_created: number; data: string;
-                }>;
-                results.push(buildSession(sessionRow, project, msgs, parts));
-              } catch (error) {
-                console.error(`opencode: skipping session ${sessionRow.id}: ${error}`);
-              }
+                return { rows: sessionRows, projectMap, msgStmt, partStmt };
+              },
+              catch: (cause) =>
+                new OpencodeError({ cause, message: "Failed to load opencode metadata" }),
+            });
+
+            for (let i = 0; i < rows.length; i++) {
+              const row = rows[i]!;
+              const parsed = yield* Effect.try({
+                try: () => {
+                  const project = projectMap.get(row.project_id);
+                  const msgs = msgStmt!.all(row.id) as Array<{
+                    id: string; time_created: number; data: string;
+                  }>;
+                  const parts = partStmt!.all(row.id) as Array<{
+                    id: string; message_id: string; time_created: number; data: string;
+                  }>;
+                  return buildSession(row, project, msgs, parts);
+                },
+                catch: (cause) =>
+                  new OpencodeError({
+                    cause,
+                    message: `Failed to parse session ${row.id}`,
+                  }),
+              }).pipe(
+                Effect.catch((err) =>
+                  Effect.gen(function* () {
+                    yield* Effect.logError("opencode: skipping session", row.id, err.message);
+                    return null as ParsedSession | null;
+                  }),
+                ),
+              );
+
+              if (parsed) yield* f(parsed, i + 1, rows.length);
             }
+          }),
+        );
 
-            return results;
-          } finally {
-            db.close();
-          }
-        },
-        catch: (cause) => new OpencodeError({ cause, message: String(cause) }),
-      });
-
-      return OpencodeAdapterService.of({ parseAll });
+      return OpencodeAdapterService.of({ forEachSession });
     }),
   );
 }
