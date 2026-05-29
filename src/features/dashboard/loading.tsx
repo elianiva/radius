@@ -25,9 +25,24 @@ export function StatCardSkeleton() {
   );
 }
 
+const colClasses: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-2 lg:grid-cols-4",
+  5: "grid-cols-2 lg:grid-cols-5",
+  6: "grid-cols-2 lg:grid-cols-3 xl:grid-cols-6",
+};
+
 export function StatCardGridSkeleton({ count = 4 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4" aria-label="Loading stats">
+    <div
+      className={cn(
+        "grid gap-4",
+        colClasses[count] ?? colClasses[4],
+      )}
+      aria-label="Loading stats"
+    >
       {Array.from({ length: count }, (_, i) => (
         <StatCardSkeleton key={i} />
       ))}
