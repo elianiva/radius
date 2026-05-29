@@ -1,6 +1,7 @@
 import { Context, Effect, Layer, Queue, Stream, Cause } from "effect";
 
 import { PiAdapterService, PiIngestError } from "./ingest/pi";
+import { OpencodeAdapterService, OpencodeError } from "./ingest/opencode";
 import { PersistService, PersistError } from "./ingest/persist";
 import { MaterialisationService } from "./materialisation/service";
 import type { IngestProgress } from "./progress";
@@ -9,22 +10,27 @@ import type { SwearMatError } from "./materialisation/swear";
 
 export type IngestError =
   | PiIngestError
+  | OpencodeError
   | PersistError
   | SummaryError
   | SwearMatError;
 
 export class IngestService extends Context.Service<
   IngestService,
-  { readonly ingest: Effect.Effect<Stream.Stream<IngestProgress, IngestError>> }
+  {
+    readonly ingestPi: Effect.Effect<Stream.Stream<IngestProgress, IngestError>>;
+    readonly ingestOpencode: Effect.Effect<Stream.Stream<IngestProgress, IngestError>>;
+  }
 >()("radius/IngestService") {
   static readonly layer = Layer.effect(
     IngestService,
     Effect.gen(function*() {
-      const adapter = yield* PiAdapterService;
+      const piAdapter = yield* PiAdapterService;
+      const opencodeAdapter = yield* OpencodeAdapterService;
       const persist = yield* PersistService;
       const mat = yield* MaterialisationService;
 
-      const ingest = Stream.callback<IngestProgress, IngestError>(
+      const ingestPi = Stream.callback<IngestProgress, IngestError>(
         (queue: Queue.Queue<IngestProgress, IngestError | Cause.Done>) =>
           Effect.gen(function*() {
             yield* Effect.logInfo("pi.ingest: Finding sessions");
@@ -35,7 +41,7 @@ export class IngestService extends Context.Service<
               description: "Looking through your pi data",
             });
 
-            const { files, totalSessions } = yield* adapter.discover;
+            const { files, totalSessions } = yield* piAdapter.discover;
 
             const seenProjects = new Set<string>();
             let events = 0;
@@ -45,14 +51,13 @@ export class IngestService extends Context.Service<
               const fileInfo = files[idx]!;
               const sessionIndex = idx + 1;
 
-              const parsed = yield* adapter.parse(fileInfo);
+              const parsed = yield* piAdapter.parse(fileInfo);
               events += parsed.eventCount;
               sessionEvents += parsed.sessionEventCount;
               seenProjects.add(parsed.header.cwd);
 
               yield* persist.persist(parsed);
               yield* mat.materialiseSession(parsed);
-              console.log('DEBUG: materialised');
 
               yield* Effect.logInfo("pi.ingest: Imported session").pipe(
                 Effect.annotateLogs({
@@ -67,6 +72,7 @@ export class IngestService extends Context.Service<
                 stage: "importing-session",
                 label: `Importing ${parsed.projectName}`,
                 description: `Session ${sessionIndex} of ${totalSessions}`,
+                source: "pi",
                 sessionId: parsed.header.id,
                 project: parsed.projectName,
                 sessionIndex,
@@ -101,7 +107,104 @@ export class IngestService extends Context.Service<
           }),
       );
 
-      return IngestService.of({ ingest: Effect.succeed(ingest) });
+      const ingestOpencode = Stream.callback<IngestProgress, IngestError>(
+        (queue: Queue.Queue<IngestProgress, IngestError | Cause.Done>) =>
+          Effect.gen(function* () {
+            yield* Effect.logInfo("opencode.ingest: Getting sessions");
+
+            yield* Queue.offer(queue, {
+              stage: "opencode-discovering",
+              label: "Scanning opencode sessions",
+              description: "Reading from opencode database",
+            } as IngestProgress);
+
+            const sessionInfos = yield* opencodeAdapter.getAllSessions;
+            const totalSessions = sessionInfos.length;
+
+            if (totalSessions === 0) {
+              yield* Queue.offer(queue, {
+                stage: "done",
+                label: "Import complete",
+                description: "No opencode sessions found",
+                result: {
+                  files: 0,
+                  sessions: 0,
+                  projects: 0,
+                  events: 0,
+                  sessionEvents: 0,
+                },
+              } as IngestProgress);
+              yield* Queue.end(queue);
+              return;
+            }
+
+            const seenProjects = new Set<string>();
+            let events = 0;
+            let sessionEvents = 0;
+
+            for (let idx = 0; idx < sessionInfos.length; idx++) {
+              const { session } = sessionInfos[idx]!;
+              const sessionIndex = idx + 1;
+
+              const parsed = yield* opencodeAdapter.getSessionData(session.id);
+                events += parsed.eventCount;
+                sessionEvents += parsed.sessionEventCount;
+                seenProjects.add(parsed.header.cwd);
+
+                yield* persist.persist(parsed);
+                yield* mat.materialiseSession(parsed);
+
+                yield* Effect.logInfo("opencode.ingest: Imported session").pipe(
+                  Effect.annotateLogs({
+                    sessionId: parsed.header.id,
+                    projectName: parsed.projectName,
+                    sessionIndex,
+                    totalSessions,
+                  }),
+                );
+
+                yield* Queue.offer(queue, {
+                  stage: "importing-session",
+                  label: `Importing ${parsed.projectName}`,
+                  description: `Session ${sessionIndex} of ${totalSessions}`,
+                  source: "opencode",
+                  sessionId: parsed.header.id,
+                  project: parsed.projectName,
+                  sessionIndex,
+                  totalSessions,
+                } as IngestProgress);
+              }
+
+              yield* Effect.logInfo("opencode.ingest: Complete").pipe(
+                Effect.annotateLogs({
+                  sessions: totalSessions,
+                  projects: seenProjects.size,
+                  events,
+                  sessionEvents,
+                }),
+              );
+
+              yield* Queue.offer(queue, {
+                stage: "done",
+                label: "Import complete",
+                description: `${totalSessions} sessions imported`,
+                result: {
+                  files: totalSessions,
+                  sessions: totalSessions,
+                  projects: seenProjects.size,
+                  events,
+                  sessionEvents,
+                },
+              } as IngestProgress);
+
+              yield* Queue.end(queue);
+            }),
+        );
+
+      return IngestService.of({
+        ingestPi: Effect.succeed(ingestPi),
+        ingestOpencode: Effect.succeed(ingestOpencode),
+      });
     }),
   );
 }

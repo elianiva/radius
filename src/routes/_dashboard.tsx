@@ -1,9 +1,26 @@
 import { Outlet, Link, createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Suspense, useState } from "react";
+import { Suspense, useState, useCallback } from "react";
 import { Button } from "~/components/ui/button";
-import { Loader2, Sparkles, BarChart3, Folder, List, HeartPulse, Meh, ScrollText } from "lucide-react";
-import { importPiSessions } from "~/server/rpc/sessions";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "~/components/ui/dialog";
+import {
+  Loader2,
+  Sparkles,
+  BarChart3,
+  Folder,
+  List,
+  HeartPulse,
+  Meh,
+  ScrollText,
+  Download,
+} from "lucide-react";
+import { importPiSessions, importOpencodeSessions } from "~/server/rpc/sessions";
 import { getOverviewCards } from "~/server/rpc/dashboard/overview";
 import type { IngestProgress } from "~/features/sessions/progress";
 import { OverviewLoading } from "~/features/dashboard/loading";
@@ -41,13 +58,86 @@ function Digest({ progress }: { progress: IngestProgress }) {
       </div>
       <div className="h-1 w-48 overflow-hidden rounded-none bg-muted">
         <div
-          className={`h-full rounded-none transition-all duration-500 ${
-            progress.stage === "done" ? "bg-primary" : "bg-foreground/20"
-          }`}
-          style={{ width: pct !== undefined ? `${pct}%` : progress.stage === "finding-sessions" ? "50%" : "100%" }}
+          className={`h-full rounded-none transition-all duration-500 ${progress.stage === "done" ? "bg-primary" : "bg-foreground/20"
+            }`}
+          style={{
+            width:
+              pct !== undefined
+                ? `${pct}%`
+                : progress.stage === "finding-sessions" || progress.stage === "opencode-discovering"
+                  ? "50%"
+                  : "100%",
+          }}
         />
       </div>
     </div>
+  );
+}
+
+function ImportDialog({
+  onImport,
+  disabled,
+}: {
+  onImport: (importPi: boolean, importOpencode: boolean) => void;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [importPi, setImportPi] = useState(false);
+  const [importOpencode, setImportOpencode] = useState(false);
+
+  const hasSelection = importPi || importOpencode;
+
+  const handleImport = useCallback(() => {
+    setOpen(false);
+    onImport(importPi, importOpencode);
+  }, [importPi, importOpencode, onImport]);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button variant="outline" disabled={disabled} />}>
+        <Download className="size-4" />
+        Import
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Import Sessions</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-1">
+          <label className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 rounded-sm transition-colors">
+            <input
+              type="checkbox"
+              checked={importPi}
+              onChange={(e) => setImportPi(e.target.checked)}
+              className="size-3.5 accent-foreground"
+            />
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">Pi</span>
+              <span className="text-xs text-muted-foreground">All available sessions</span>
+            </div>
+          </label>
+
+          <label className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 rounded-sm transition-colors">
+            <input
+              type="checkbox"
+              checked={importOpencode}
+              onChange={(e) => setImportOpencode(e.target.checked)}
+              className="size-3.5 accent-foreground"
+            />
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">Opencode</span>
+              <span className="text-xs text-muted-foreground">All available sessions</span>
+            </div>
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="default" disabled={!hasSelection} onClick={handleImport}>
+            Import Selected
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -62,10 +152,19 @@ function DashboardLayout() {
   });
 
   const importMutation = useMutation({
-    mutationFn: async () => {
-      const stream = await importPiSessions();
-      for await (const progress of stream) {
-        setIngestProgress(progress);
+    mutationFn: async ({ doPi, doOpencode }: { doPi: boolean; doOpencode: boolean }) => {
+      if (doPi) {
+        const stream = await importPiSessions();
+        for await (const progress of stream) {
+          setIngestProgress(progress);
+        }
+      }
+
+      if (doOpencode) {
+        const stream = await importOpencodeSessions();
+        for await (const progress of stream) {
+          setIngestProgress(progress);
+        }
       }
     },
     onSuccess: () => {
@@ -85,6 +184,13 @@ function DashboardLayout() {
     },
   });
 
+  const handleImport = useCallback(
+    (doPi: boolean, doOpencode: boolean) => {
+      importMutation.mutate({ doPi, doOpencode });
+    },
+    [importMutation],
+  );
+
   const links = [
     { to: "/overview", label: "Overview", icon: BarChart3 },
     { to: "/health", label: "Health", icon: HeartPulse },
@@ -101,9 +207,7 @@ function DashboardLayout() {
           Radius
         </Link>
 
-        <Button disabled={importMutation.isPending} onClick={() => importMutation.mutate()}>
-          {importMutation.isPending ? "Importing…" : "Import Pi Sessions"}
-        </Button>
+        <ImportDialog onImport={handleImport} disabled={importMutation.isPending} />
       </div>
 
       {importMutation.isPending && ingestProgress ? (
@@ -113,7 +217,7 @@ function DashboardLayout() {
       ) : summary.totalSessions === 0 ? (
         <div className="flex flex-col items-center justify-center gap-4 rounded border py-16">
           <p className="text-muted-foreground">No sessions yet</p>
-          <Button onClick={() => importMutation.mutate()}>Import Pi Sessions</Button>
+          <ImportDialog onImport={handleImport} disabled={importMutation.isPending} />
         </div>
       ) : (
         <>

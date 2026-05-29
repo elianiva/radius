@@ -1,6 +1,11 @@
 export type IngestProgress =
   | { readonly stage: "finding-sessions"; readonly label: string; readonly description: string }
   | {
+    readonly stage: "opencode-discovering";
+    readonly label: string;
+    readonly description: string;
+  }
+  | {
     readonly stage: "importing-session";
     readonly label: string;
     readonly description: string;
@@ -8,6 +13,8 @@ export type IngestProgress =
     readonly project: string;
     readonly sessionIndex: number;
     readonly totalSessions: number;
+    readonly source: "pi" | "opencode";
+    readonly agent?: string;
   }
   | {
     readonly stage: "done";

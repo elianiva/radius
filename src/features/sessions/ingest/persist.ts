@@ -19,8 +19,14 @@ const knownEventTypes = new Set([
 
 function mapEventType(entryType: string): string {
   if (entryType === "thinking_level_change") return "thinking_change";
+  if (entryType === "step_start") return "step_start";
+  if (entryType === "step_finish") return "step_finish";
   if (knownEventTypes.has(entryType)) return entryType;
   return "custom";
+}
+
+function detectAgent(sessionId: string): string {
+  return sessionId.startsWith("ses_") ? "opencode" : "pi";
 }
 
 function cleanEntryData(entry: Record<string, unknown>): Record<string, unknown> {
@@ -55,13 +61,15 @@ export class PersistService extends Context.Service<
           catch: (cause) => new PersistError({ cause, message: "Failed to upsert project" }),
         });
 
+        const agent = detectAgent(session.header.id);
+
         yield* Effect.try({
           try: () =>
             db
               .insert(schema.session)
               .values({
                 id: session.header.id,
-                agent: "Pi",
+                agent,
                 projectId: session.header.cwd,
                 directory: session.header.cwd,
                 title: session.title,
@@ -75,8 +83,12 @@ export class PersistService extends Context.Service<
 
         for (const entry of session.entries) {
           const data = cleanEntryData(entry);
+          const entryType = entry.type as string;
+          const mappedType = mapEventType(entryType);
 
-          if (entry.type === "message") {
+          // step_start and step_finish go into event table (conversation control flow)
+          // everything else follows the existing mapping
+          if (entryType === "message" || entryType === "step_start" || entryType === "step_finish") {
             yield* Effect.try({
               try: () =>
                 db
@@ -85,7 +97,7 @@ export class PersistService extends Context.Service<
                     id: entry.id,
                     sessionId: session.header.id,
                     parentId: entry.parentId,
-                    eventType: "message",
+                    eventType: mappedType,
                     createdAt: new Date(entry.timestamp).getTime(),
                     data: JSON.stringify(data),
                   })
@@ -102,7 +114,7 @@ export class PersistService extends Context.Service<
                   .values({
                     id: entry.id,
                     sessionId: session.header.id,
-                    eventType: mapEventType(entry.type),
+                    eventType: mappedType,
                     createdAt: new Date(entry.timestamp).getTime(),
                     data: JSON.stringify(data),
                   })

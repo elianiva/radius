@@ -2,6 +2,7 @@ import { NodeFileSystem, NodePath } from "@effect/platform-node";
 import { Layer } from "effect";
 import { Database } from "~/db/service";
 import { PiAdapterService } from "~/features/sessions/ingest/pi";
+import { OpencodeAdapterService } from "~/features/sessions/ingest/opencode";
 import { PersistService } from "~/features/sessions/ingest/persist";
 import { SessionSummaryMatsService } from "~/features/sessions/materialisation/summary";
 import { SwearMatsService } from "~/features/sessions/materialisation/swear";
@@ -38,8 +39,11 @@ const MatsLayer = MaterialisationService.layer.pipe(
   Layer.provide(SummaryMatsLayer),
   Layer.provide(SwearMatsLayer),
 );
+const OpencodeAdapterLayer = OpencodeAdapterService.layer;
+
 const IngestLayer = IngestService.layer.pipe(
   Layer.provide(PiAdapterLayer),
+  Layer.provide(OpencodeAdapterLayer),
   Layer.provide(PersistLayer),
   Layer.provide(MatsLayer),
 );
