@@ -2,25 +2,29 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - name: Setup
+        uses: voidzero-dev/setup-vp@v1
         with:
-          version: 11.4.0
+          cache: true
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ">=22.13.0"
-          cache: pnpm
+      - name: Lint & typecheck
+        run: vp check
 
-      - run: pnpm install
-
-      - run: pnpm exec vp check
-      - run: pnpm exec vp build
+      - name: Build
+        run: vp build
