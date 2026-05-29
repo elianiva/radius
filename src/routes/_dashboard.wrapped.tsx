@@ -5,25 +5,25 @@ import { getWrappedData } from "~/server/rpc/wrapped";
 import { Wrapped } from "~/features/wrapped/wrapped";
 
 export const Route = createFileRoute("/_dashboard/wrapped")({
-  component: WrappedRoute,
+	component: WrappedRoute,
 });
 
 function WrappedRoute() {
-  const [year, setYear] = useState<number | undefined>(undefined);
+	const [year, setYear] = useState<number | undefined>(undefined);
 
-  const { data } = useQuery({
-    queryKey: ["wrapped-data", year],
-    queryFn: () => getWrappedData({ data: { year } }),
-    staleTime: 60_000,
-  });
+	const { data } = useQuery({
+		queryKey: ["wrapped-data", year],
+		queryFn: () => getWrappedData({ data: { year } }),
+		staleTime: 60_000,
+	});
 
-  if (!data) {
-    return (
-      <div className="flex h-[calc(100vh-5rem)] items-center justify-center">
-        <p className="text-sm text-muted-foreground">Loading...</p>
-      </div>
-    );
-  }
+	if (!data) {
+		return (
+			<div className="flex h-[calc(100vh-5rem)] items-center justify-center">
+				<p className="text-sm text-muted-foreground">Loading...</p>
+			</div>
+		);
+	}
 
-  return <Wrapped data={data} year={year} onYearChange={setYear} />;
+	return <Wrapped data={data} year={year} onYearChange={setYear} />;
 }

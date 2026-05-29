@@ -177,50 +177,50 @@ interface needed.
 
 ```typescript
 export class SessionDb extends Context.Service<SessionDb>()("radius/SessionDb", {
-  make: (dbPath: string) =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem;
-      const path = yield* Path;
-      yield* fs.makeDirectory(path.dirname(dbPath), { recursive: true });
-      const sqlite = new Database(dbPath);
-      yield* Effect.addFinalizer(() => Effect.sync(() => sqlite.close()));
-      sqlite.pragma("journal_mode = WAL");
-      sqlite.pragma("foreign_keys = ON");
-      const db = drizzle(sqlite, { schema });
-      migrate(db, { migrationsFolder: "./src/db/migrations" });
+	make: (dbPath: string) =>
+		Effect.gen(function* () {
+			const fs = yield* FileSystem;
+			const path = yield* Path;
+			yield* fs.makeDirectory(path.dirname(dbPath), { recursive: true });
+			const sqlite = new Database(dbPath);
+			yield* Effect.addFinalizer(() => Effect.sync(() => sqlite.close()));
+			sqlite.pragma("journal_mode = WAL");
+			sqlite.pragma("foreign_keys = ON");
+			const db = drizzle(sqlite, { schema });
+			migrate(db, { migrationsFolder: "./src/db/migrations" });
 
-      const getSessions = (filter?: SessionFilter) =>
-        Effect.sync(() => {
-          const q = db.select().from(schema.session).$dynamic();
-          if (filter?.projectId) q.where(eq(schema.session.projectId, filter.projectId));
-          return q.all();
-        });
+			const getSessions = (filter?: SessionFilter) =>
+				Effect.sync(() => {
+					const q = db.select().from(schema.session).$dynamic();
+					if (filter?.projectId) q.where(eq(schema.session.projectId, filter.projectId));
+					return q.all();
+				});
 
-      return {
-        migrate: Effect.sync(() => migrate(db, { migrationsFolder: "./src/db/migrations" })),
-        ingestPi: Effect.die("not implemented"),
-        ingestOpencode: Effect.die("not implemented"),
-        ingestAll: Effect.die("not implemented"),
-        getProjects: Effect.sync(() => db.select().from(schema.project).all()),
-        getSessions,
-        getEvents: (sessionId: string) =>
-          Effect.sync(() =>
-            db.select().from(schema.event).where(eq(schema.event.sessionId, sessionId)).all(),
-          ),
-        getModelUsage: Effect.sync(() =>
-          db.all<{ model: string; count: number }>(
-            sql`SELECT json_extract(data, '$.model') as model, COUNT(*) as count FROM event WHERE event_type = 'message' AND json_extract(data, '$.role') = 'assistant' GROUP BY model ORDER BY count DESC`,
-          ),
-        ),
-        getToolUsage: Effect.sync(() =>
-          db.all<{ tool: string; count: number }>(
-            sql`SELECT json_extract(part.value, '$.name') as tool, COUNT(*) as count FROM event, json_each(json_extract(data, '$.content')) as part WHERE event_type = 'message' AND json_extract(data, '$.role') = 'assistant' AND json_extract(part.value, '$.type') = 'toolCall' GROUP BY tool ORDER BY count DESC`,
-          ),
-        ),
-      } as const;
-    }),
+			return {
+				migrate: Effect.sync(() => migrate(db, { migrationsFolder: "./src/db/migrations" })),
+				ingestPi: Effect.die("not implemented"),
+				ingestOpencode: Effect.die("not implemented"),
+				ingestAll: Effect.die("not implemented"),
+				getProjects: Effect.sync(() => db.select().from(schema.project).all()),
+				getSessions,
+				getEvents: (sessionId: string) =>
+					Effect.sync(() =>
+						db.select().from(schema.event).where(eq(schema.event.sessionId, sessionId)).all(),
+					),
+				getModelUsage: Effect.sync(() =>
+					db.all<{ model: string; count: number }>(
+						sql`SELECT json_extract(data, '$.model') as model, COUNT(*) as count FROM event WHERE event_type = 'message' AND json_extract(data, '$.role') = 'assistant' GROUP BY model ORDER BY count DESC`,
+					),
+				),
+				getToolUsage: Effect.sync(() =>
+					db.all<{ tool: string; count: number }>(
+						sql`SELECT json_extract(part.value, '$.name') as tool, COUNT(*) as count FROM event, json_each(json_extract(data, '$.content')) as part WHERE event_type = 'message' AND json_extract(data, '$.role') = 'assistant' AND json_extract(part.value, '$.type') = 'toolCall' GROUP BY tool ORDER BY count DESC`,
+					),
+				),
+			} as const;
+		}),
 }) {
-  static readonly layer = (dbPath: string) => Layer.effect(this, this.make(dbPath));
+	static readonly layer = (dbPath: string) => Layer.effect(this, this.make(dbPath));
 }
 ```
 
@@ -233,14 +233,14 @@ allows re-running migrations if needed.
 
 ```json
 {
-  "dependencies": {
-    "@effect/platform": "^4.0.0-beta.73",
-    "@effect/platform-node": "^4.0.0-beta.73",
-    "drizzle-orm": "^1.0.0-beta"
-  },
-  "devDependencies": {
-    "drizzle-kit": "^1.0.0-beta"
-  }
+	"dependencies": {
+		"@effect/platform": "^4.0.0-beta.73",
+		"@effect/platform-node": "^4.0.0-beta.73",
+		"drizzle-orm": "^1.0.0-beta"
+	},
+	"devDependencies": {
+		"drizzle-kit": "^1.0.0-beta"
+	}
 }
 ```
 

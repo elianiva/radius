@@ -5,32 +5,32 @@ import viteReact, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 const config = defineConfig({
-  staged: {
-    "*": "vp check --fix",
-  },
-  fmt: {
-    useTabs: true,
-  },
-  lint: {
-    jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
-    rules: { "vite-plus/prefer-vite-plus-imports": "error" },
-    options: { typeAware: true, typeCheck: true },
-  },
-  resolve: {
-    tsconfigPaths: true,
-  },
-  plugins: [
-    tailwindcss(),
-    tanstackStart(),
-    viteReact(),
-    babel({ presets: [reactCompilerPreset()] }),
-  ],
-  pack: {
-    entry: { radius: "src/cli/main.ts" },
-    format: ["esm"],
-    outDir: "bin",
-    clean: true,
-  },
+	staged: {
+		"*": "vp check --fix",
+	},
+	fmt: {
+		useTabs: true,
+	},
+	lint: {
+		jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
+		rules: { "vite-plus/prefer-vite-plus-imports": "error" },
+		options: { typeAware: true, typeCheck: true },
+	},
+	resolve: {
+		tsconfigPaths: true,
+	},
+	plugins: [
+		tailwindcss(),
+		tanstackStart(),
+		viteReact(),
+		babel({ presets: [reactCompilerPreset()] }),
+	],
+	pack: {
+		entry: { radius: "src/cli/main.ts" },
+		format: ["esm"],
+		outDir: "bin",
+		clean: true,
+	},
 });
 
 export default config;

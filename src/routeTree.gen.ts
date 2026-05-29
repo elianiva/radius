@@ -8,248 +8,246 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as DashboardRouteImport } from './routes/_dashboard'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as DashboardWrappedRouteImport } from './routes/_dashboard.wrapped'
-import { Route as DashboardSwearingRouteImport } from './routes/_dashboard.swearing'
-import { Route as DashboardSessionsRouteImport } from './routes/_dashboard.sessions'
-import { Route as DashboardProjectsRouteImport } from './routes/_dashboard.projects'
-import { Route as DashboardOverviewRouteImport } from './routes/_dashboard.overview'
-import { Route as DashboardHealthRouteImport } from './routes/_dashboard.health'
-import { Route as DashboardSessionsSessionIdRouteImport } from './routes/_dashboard.sessions.$sessionId'
+import { Route as rootRouteImport } from "./routes/__root";
+import { Route as DashboardRouteImport } from "./routes/_dashboard";
+import { Route as IndexRouteImport } from "./routes/index";
+import { Route as DashboardWrappedRouteImport } from "./routes/_dashboard.wrapped";
+import { Route as DashboardSwearingRouteImport } from "./routes/_dashboard.swearing";
+import { Route as DashboardSessionsRouteImport } from "./routes/_dashboard.sessions";
+import { Route as DashboardProjectsRouteImport } from "./routes/_dashboard.projects";
+import { Route as DashboardOverviewRouteImport } from "./routes/_dashboard.overview";
+import { Route as DashboardHealthRouteImport } from "./routes/_dashboard.health";
+import { Route as DashboardSessionsSessionIdRouteImport } from "./routes/_dashboard.sessions.$sessionId";
 
 const DashboardRoute = DashboardRouteImport.update({
-  id: '/_dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
+	id: "/_dashboard",
+	getParentRoute: () => rootRouteImport,
+} as any);
 const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
+	id: "/",
+	path: "/",
+	getParentRoute: () => rootRouteImport,
+} as any);
 const DashboardWrappedRoute = DashboardWrappedRouteImport.update({
-  id: '/wrapped',
-  path: '/wrapped',
-  getParentRoute: () => DashboardRoute,
-} as any)
+	id: "/wrapped",
+	path: "/wrapped",
+	getParentRoute: () => DashboardRoute,
+} as any);
 const DashboardSwearingRoute = DashboardSwearingRouteImport.update({
-  id: '/swearing',
-  path: '/swearing',
-  getParentRoute: () => DashboardRoute,
-} as any)
+	id: "/swearing",
+	path: "/swearing",
+	getParentRoute: () => DashboardRoute,
+} as any);
 const DashboardSessionsRoute = DashboardSessionsRouteImport.update({
-  id: '/sessions',
-  path: '/sessions',
-  getParentRoute: () => DashboardRoute,
-} as any)
+	id: "/sessions",
+	path: "/sessions",
+	getParentRoute: () => DashboardRoute,
+} as any);
 const DashboardProjectsRoute = DashboardProjectsRouteImport.update({
-  id: '/projects',
-  path: '/projects',
-  getParentRoute: () => DashboardRoute,
-} as any)
+	id: "/projects",
+	path: "/projects",
+	getParentRoute: () => DashboardRoute,
+} as any);
 const DashboardOverviewRoute = DashboardOverviewRouteImport.update({
-  id: '/overview',
-  path: '/overview',
-  getParentRoute: () => DashboardRoute,
-} as any)
+	id: "/overview",
+	path: "/overview",
+	getParentRoute: () => DashboardRoute,
+} as any);
 const DashboardHealthRoute = DashboardHealthRouteImport.update({
-  id: '/health',
-  path: '/health',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardSessionsSessionIdRoute =
-  DashboardSessionsSessionIdRouteImport.update({
-    id: '/$sessionId',
-    path: '/$sessionId',
-    getParentRoute: () => DashboardSessionsRoute,
-  } as any)
+	id: "/health",
+	path: "/health",
+	getParentRoute: () => DashboardRoute,
+} as any);
+const DashboardSessionsSessionIdRoute = DashboardSessionsSessionIdRouteImport.update({
+	id: "/$sessionId",
+	path: "/$sessionId",
+	getParentRoute: () => DashboardSessionsRoute,
+} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/health': typeof DashboardHealthRoute
-  '/overview': typeof DashboardOverviewRoute
-  '/projects': typeof DashboardProjectsRoute
-  '/sessions': typeof DashboardSessionsRouteWithChildren
-  '/swearing': typeof DashboardSwearingRoute
-  '/wrapped': typeof DashboardWrappedRoute
-  '/sessions/$sessionId': typeof DashboardSessionsSessionIdRoute
+	"/": typeof IndexRoute;
+	"/health": typeof DashboardHealthRoute;
+	"/overview": typeof DashboardOverviewRoute;
+	"/projects": typeof DashboardProjectsRoute;
+	"/sessions": typeof DashboardSessionsRouteWithChildren;
+	"/swearing": typeof DashboardSwearingRoute;
+	"/wrapped": typeof DashboardWrappedRoute;
+	"/sessions/$sessionId": typeof DashboardSessionsSessionIdRoute;
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/health': typeof DashboardHealthRoute
-  '/overview': typeof DashboardOverviewRoute
-  '/projects': typeof DashboardProjectsRoute
-  '/sessions': typeof DashboardSessionsRouteWithChildren
-  '/swearing': typeof DashboardSwearingRoute
-  '/wrapped': typeof DashboardWrappedRoute
-  '/sessions/$sessionId': typeof DashboardSessionsSessionIdRoute
+	"/": typeof IndexRoute;
+	"/health": typeof DashboardHealthRoute;
+	"/overview": typeof DashboardOverviewRoute;
+	"/projects": typeof DashboardProjectsRoute;
+	"/sessions": typeof DashboardSessionsRouteWithChildren;
+	"/swearing": typeof DashboardSwearingRoute;
+	"/wrapped": typeof DashboardWrappedRoute;
+	"/sessions/$sessionId": typeof DashboardSessionsSessionIdRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/_dashboard': typeof DashboardRouteWithChildren
-  '/_dashboard/health': typeof DashboardHealthRoute
-  '/_dashboard/overview': typeof DashboardOverviewRoute
-  '/_dashboard/projects': typeof DashboardProjectsRoute
-  '/_dashboard/sessions': typeof DashboardSessionsRouteWithChildren
-  '/_dashboard/swearing': typeof DashboardSwearingRoute
-  '/_dashboard/wrapped': typeof DashboardWrappedRoute
-  '/_dashboard/sessions/$sessionId': typeof DashboardSessionsSessionIdRoute
+	__root__: typeof rootRouteImport;
+	"/": typeof IndexRoute;
+	"/_dashboard": typeof DashboardRouteWithChildren;
+	"/_dashboard/health": typeof DashboardHealthRoute;
+	"/_dashboard/overview": typeof DashboardOverviewRoute;
+	"/_dashboard/projects": typeof DashboardProjectsRoute;
+	"/_dashboard/sessions": typeof DashboardSessionsRouteWithChildren;
+	"/_dashboard/swearing": typeof DashboardSwearingRoute;
+	"/_dashboard/wrapped": typeof DashboardWrappedRoute;
+	"/_dashboard/sessions/$sessionId": typeof DashboardSessionsSessionIdRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/health'
-    | '/overview'
-    | '/projects'
-    | '/sessions'
-    | '/swearing'
-    | '/wrapped'
-    | '/sessions/$sessionId'
-  fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/health'
-    | '/overview'
-    | '/projects'
-    | '/sessions'
-    | '/swearing'
-    | '/wrapped'
-    | '/sessions/$sessionId'
-  id:
-    | '__root__'
-    | '/'
-    | '/_dashboard'
-    | '/_dashboard/health'
-    | '/_dashboard/overview'
-    | '/_dashboard/projects'
-    | '/_dashboard/sessions'
-    | '/_dashboard/swearing'
-    | '/_dashboard/wrapped'
-    | '/_dashboard/sessions/$sessionId'
-  fileRoutesById: FileRoutesById
+	fileRoutesByFullPath: FileRoutesByFullPath;
+	fullPaths:
+		| "/"
+		| "/health"
+		| "/overview"
+		| "/projects"
+		| "/sessions"
+		| "/swearing"
+		| "/wrapped"
+		| "/sessions/$sessionId";
+	fileRoutesByTo: FileRoutesByTo;
+	to:
+		| "/"
+		| "/health"
+		| "/overview"
+		| "/projects"
+		| "/sessions"
+		| "/swearing"
+		| "/wrapped"
+		| "/sessions/$sessionId";
+	id:
+		| "__root__"
+		| "/"
+		| "/_dashboard"
+		| "/_dashboard/health"
+		| "/_dashboard/overview"
+		| "/_dashboard/projects"
+		| "/_dashboard/sessions"
+		| "/_dashboard/swearing"
+		| "/_dashboard/wrapped"
+		| "/_dashboard/sessions/$sessionId";
+	fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  DashboardRoute: typeof DashboardRouteWithChildren
+	IndexRoute: typeof IndexRoute;
+	DashboardRoute: typeof DashboardRouteWithChildren;
 }
 
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {
-    '/_dashboard': {
-      id: '/_dashboard'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_dashboard/wrapped': {
-      id: '/_dashboard/wrapped'
-      path: '/wrapped'
-      fullPath: '/wrapped'
-      preLoaderRoute: typeof DashboardWrappedRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/swearing': {
-      id: '/_dashboard/swearing'
-      path: '/swearing'
-      fullPath: '/swearing'
-      preLoaderRoute: typeof DashboardSwearingRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/sessions': {
-      id: '/_dashboard/sessions'
-      path: '/sessions'
-      fullPath: '/sessions'
-      preLoaderRoute: typeof DashboardSessionsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/projects': {
-      id: '/_dashboard/projects'
-      path: '/projects'
-      fullPath: '/projects'
-      preLoaderRoute: typeof DashboardProjectsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/overview': {
-      id: '/_dashboard/overview'
-      path: '/overview'
-      fullPath: '/overview'
-      preLoaderRoute: typeof DashboardOverviewRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/health': {
-      id: '/_dashboard/health'
-      path: '/health'
-      fullPath: '/health'
-      preLoaderRoute: typeof DashboardHealthRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/sessions/$sessionId': {
-      id: '/_dashboard/sessions/$sessionId'
-      path: '/$sessionId'
-      fullPath: '/sessions/$sessionId'
-      preLoaderRoute: typeof DashboardSessionsSessionIdRouteImport
-      parentRoute: typeof DashboardSessionsRoute
-    }
-  }
+declare module "@tanstack/react-router" {
+	interface FileRoutesByPath {
+		"/_dashboard": {
+			id: "/_dashboard";
+			path: "";
+			fullPath: "/";
+			preLoaderRoute: typeof DashboardRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
+		"/": {
+			id: "/";
+			path: "/";
+			fullPath: "/";
+			preLoaderRoute: typeof IndexRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
+		"/_dashboard/wrapped": {
+			id: "/_dashboard/wrapped";
+			path: "/wrapped";
+			fullPath: "/wrapped";
+			preLoaderRoute: typeof DashboardWrappedRouteImport;
+			parentRoute: typeof DashboardRoute;
+		};
+		"/_dashboard/swearing": {
+			id: "/_dashboard/swearing";
+			path: "/swearing";
+			fullPath: "/swearing";
+			preLoaderRoute: typeof DashboardSwearingRouteImport;
+			parentRoute: typeof DashboardRoute;
+		};
+		"/_dashboard/sessions": {
+			id: "/_dashboard/sessions";
+			path: "/sessions";
+			fullPath: "/sessions";
+			preLoaderRoute: typeof DashboardSessionsRouteImport;
+			parentRoute: typeof DashboardRoute;
+		};
+		"/_dashboard/projects": {
+			id: "/_dashboard/projects";
+			path: "/projects";
+			fullPath: "/projects";
+			preLoaderRoute: typeof DashboardProjectsRouteImport;
+			parentRoute: typeof DashboardRoute;
+		};
+		"/_dashboard/overview": {
+			id: "/_dashboard/overview";
+			path: "/overview";
+			fullPath: "/overview";
+			preLoaderRoute: typeof DashboardOverviewRouteImport;
+			parentRoute: typeof DashboardRoute;
+		};
+		"/_dashboard/health": {
+			id: "/_dashboard/health";
+			path: "/health";
+			fullPath: "/health";
+			preLoaderRoute: typeof DashboardHealthRouteImport;
+			parentRoute: typeof DashboardRoute;
+		};
+		"/_dashboard/sessions/$sessionId": {
+			id: "/_dashboard/sessions/$sessionId";
+			path: "/$sessionId";
+			fullPath: "/sessions/$sessionId";
+			preLoaderRoute: typeof DashboardSessionsSessionIdRouteImport;
+			parentRoute: typeof DashboardSessionsRoute;
+		};
+	}
 }
 
 interface DashboardSessionsRouteChildren {
-  DashboardSessionsSessionIdRoute: typeof DashboardSessionsSessionIdRoute
+	DashboardSessionsSessionIdRoute: typeof DashboardSessionsSessionIdRoute;
 }
 
 const DashboardSessionsRouteChildren: DashboardSessionsRouteChildren = {
-  DashboardSessionsSessionIdRoute: DashboardSessionsSessionIdRoute,
-}
+	DashboardSessionsSessionIdRoute: DashboardSessionsSessionIdRoute,
+};
 
-const DashboardSessionsRouteWithChildren =
-  DashboardSessionsRoute._addFileChildren(DashboardSessionsRouteChildren)
+const DashboardSessionsRouteWithChildren = DashboardSessionsRoute._addFileChildren(
+	DashboardSessionsRouteChildren,
+);
 
 interface DashboardRouteChildren {
-  DashboardHealthRoute: typeof DashboardHealthRoute
-  DashboardOverviewRoute: typeof DashboardOverviewRoute
-  DashboardProjectsRoute: typeof DashboardProjectsRoute
-  DashboardSessionsRoute: typeof DashboardSessionsRouteWithChildren
-  DashboardSwearingRoute: typeof DashboardSwearingRoute
-  DashboardWrappedRoute: typeof DashboardWrappedRoute
+	DashboardHealthRoute: typeof DashboardHealthRoute;
+	DashboardOverviewRoute: typeof DashboardOverviewRoute;
+	DashboardProjectsRoute: typeof DashboardProjectsRoute;
+	DashboardSessionsRoute: typeof DashboardSessionsRouteWithChildren;
+	DashboardSwearingRoute: typeof DashboardSwearingRoute;
+	DashboardWrappedRoute: typeof DashboardWrappedRoute;
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
-  DashboardHealthRoute: DashboardHealthRoute,
-  DashboardOverviewRoute: DashboardOverviewRoute,
-  DashboardProjectsRoute: DashboardProjectsRoute,
-  DashboardSessionsRoute: DashboardSessionsRouteWithChildren,
-  DashboardSwearingRoute: DashboardSwearingRoute,
-  DashboardWrappedRoute: DashboardWrappedRoute,
-}
+	DashboardHealthRoute: DashboardHealthRoute,
+	DashboardOverviewRoute: DashboardOverviewRoute,
+	DashboardProjectsRoute: DashboardProjectsRoute,
+	DashboardSessionsRoute: DashboardSessionsRouteWithChildren,
+	DashboardSwearingRoute: DashboardSwearingRoute,
+	DashboardWrappedRoute: DashboardWrappedRoute,
+};
 
-const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
-  DashboardRouteChildren,
-)
+const DashboardRouteWithChildren = DashboardRoute._addFileChildren(DashboardRouteChildren);
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  DashboardRoute: DashboardRouteWithChildren,
-}
+	IndexRoute: IndexRoute,
+	DashboardRoute: DashboardRouteWithChildren,
+};
 export const routeTree = rootRouteImport
-  ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+	._addFileChildren(rootRouteChildren)
+	._addFileTypes<FileRouteTypes>();
 
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
+import type { getRouter } from "./router.tsx";
+import type { createStart } from "@tanstack/react-start";
+declare module "@tanstack/react-start" {
+	interface Register {
+		ssr: true;
+		router: Awaited<ReturnType<typeof getRouter>>;
+	}
 }

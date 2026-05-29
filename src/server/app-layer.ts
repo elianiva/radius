@@ -36,25 +36,25 @@ const PersistLayer = PersistService.layer.pipe(Layer.provide(DatabaseLayer));
 const SummaryMatsLayer = SessionSummaryMatsService.layer.pipe(Layer.provide(DatabaseLayer));
 const SwearMatsLayer = SwearMatsService.layer.pipe(Layer.provide(DatabaseLayer));
 const MatsLayer = MaterialisationService.layer.pipe(
-  Layer.provide(SummaryMatsLayer),
-  Layer.provide(SwearMatsLayer),
+	Layer.provide(SummaryMatsLayer),
+	Layer.provide(SwearMatsLayer),
 );
 const OpencodeAdapterLayer = OpencodeAdapterService.layer;
 
 const IngestLayer = IngestService.layer.pipe(
-  Layer.provide(PiAdapterLayer),
-  Layer.provide(OpencodeAdapterLayer),
-  Layer.provide(PersistLayer),
-  Layer.provide(MatsLayer),
+	Layer.provide(PiAdapterLayer),
+	Layer.provide(OpencodeAdapterLayer),
+	Layer.provide(PersistLayer),
+	Layer.provide(MatsLayer),
 );
 
 export const AppLayer = Layer.mergeAll(
-  IngestLayer,
-  SessionServiceLayer,
-  OverviewLayer,
-  HealthLayer,
-  SessionsLayer,
-  ProjectLayer,
-  SwearLayer,
-  WrappedLayer,
+	IngestLayer,
+	SessionServiceLayer,
+	OverviewLayer,
+	HealthLayer,
+	SessionsLayer,
+	ProjectLayer,
+	SwearLayer,
+	WrappedLayer,
 );

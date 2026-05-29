@@ -4,13 +4,13 @@ import { Sessions } from "~/features/dashboard/sessions";
 import { SessionsTableLoading } from "~/features/dashboard/loading";
 
 export const Route = createFileRoute("/_dashboard/sessions")({
-  component: SessionsRoute,
+	component: SessionsRoute,
 });
 
 function SessionsRoute() {
-  return (
-    <Suspense fallback={<SessionsTableLoading rows={10} />}>
-      <Sessions />
-    </Suspense>
-  );
+	return (
+		<Suspense fallback={<SessionsTableLoading rows={10} />}>
+			<Sessions />
+		</Suspense>
+	);
 }

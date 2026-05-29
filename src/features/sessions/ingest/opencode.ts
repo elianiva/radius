@@ -6,252 +6,268 @@ import { join } from "node:path";
 import type { Entry, ParsedSession } from "./adapter";
 
 export class OpencodeError extends Data.TaggedError("OpencodeError")<{
-  readonly cause: unknown;
-  readonly message: string;
+	readonly cause: unknown;
+	readonly message: string;
 }> {}
 
 function basename(p: string): string {
-  const idx = p.lastIndexOf("/");
-  return idx >= 0 ? p.slice(idx + 1) : p;
+	const idx = p.lastIndexOf("/");
+	return idx >= 0 ? p.slice(idx + 1) : p;
 }
 
 function msToIso(ms: number): string {
-  return new Date(ms).toISOString();
+	return new Date(ms).toISOString();
 }
 
 function normaliseMessageData(raw: Record<string, unknown>): Record<string, unknown> {
-  const normalised: Record<string, unknown> = { ...raw };
+	const normalised: Record<string, unknown> = { ...raw };
 
-  if (raw.modelID && !raw.model) normalised.model = raw.modelID;
-  if (raw.providerID && !raw.provider) normalised.provider = raw.providerID;
-  if (raw.finish && !raw.stopReason) normalised.stopReason = raw.finish;
+	if (raw.modelID && !raw.model) normalised.model = raw.modelID;
+	if (raw.providerID && !raw.provider) normalised.provider = raw.providerID;
+	if (raw.finish && !raw.stopReason) normalised.stopReason = raw.finish;
 
-  if (raw.tokens && typeof raw.tokens === "object") {
-    const t = raw.tokens as Record<string, unknown>;
-    const input = (t.input as number) ?? 0;
-    const output = (t.output as number) ?? 0;
-    const cacheRead = ((t.cache as Record<string, unknown>)?.read as number) ?? 0;
-    const cacheWrite = ((t.cache as Record<string, unknown>)?.write as number) ?? 0;
-    normalised.usage = {
-      input,
-      output,
-      cacheRead,
-      cacheWrite,
-      totalTokens: input + output,
-      cost: {
-        input: 0,
-        output: 0,
-        cacheRead: 0,
-        cacheWrite: 0,
-        total: (raw.cost as number) ?? 0,
-      },
-    };
-  }
+	if (raw.tokens && typeof raw.tokens === "object") {
+		const t = raw.tokens as Record<string, unknown>;
+		const input = (t.input as number) ?? 0;
+		const output = (t.output as number) ?? 0;
+		const cacheRead = ((t.cache as Record<string, unknown>)?.read as number) ?? 0;
+		const cacheWrite = ((t.cache as Record<string, unknown>)?.write as number) ?? 0;
+		normalised.usage = {
+			input,
+			output,
+			cacheRead,
+			cacheWrite,
+			totalTokens: input + output,
+			cost: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				total: (raw.cost as number) ?? 0,
+			},
+		};
+	}
 
-  return normalised;
+	return normalised;
 }
 
 function buildSession(
-  sessionRow: {
-    id: string; project_id: string; title: string | null;
-    directory: string | null; time_created: number;
-  },
-  projectRow: { worktree: string | null; name: string | null } | undefined,
-  msgRows: ReadonlyArray<{ id: string; time_created: number; data: string }>,
-  partRows: ReadonlyArray<{ id: string; message_id: string; time_created: number; data: string }>,
+	sessionRow: {
+		id: string;
+		project_id: string;
+		title: string | null;
+		directory: string | null;
+		time_created: number;
+	},
+	projectRow: { worktree: string | null; name: string | null } | undefined,
+	msgRows: ReadonlyArray<{ id: string; time_created: number; data: string }>,
+	partRows: ReadonlyArray<{ id: string; message_id: string; time_created: number; data: string }>,
 ): ParsedSession {
-  const cwd = projectRow?.worktree ?? sessionRow.directory ?? "/unknown";
-  const projectName = projectRow?.name ?? basename(cwd);
+	const cwd = projectRow?.worktree ?? sessionRow.directory ?? "/unknown";
+	const projectName = projectRow?.name ?? basename(cwd);
 
-  const partsByMsg = new Map<string, (typeof partRows)[number][]>();
-  for (const part of partRows) {
-    const existing = partsByMsg.get(part.message_id) ?? [];
-    existing.push(part);
-    partsByMsg.set(part.message_id, existing);
-  }
+	const partsByMsg = new Map<string, (typeof partRows)[number][]>();
+	for (const part of partRows) {
+		const existing = partsByMsg.get(part.message_id) ?? [];
+		existing.push(part);
+		partsByMsg.set(part.message_id, existing);
+	}
 
-  const entries: Entry[] = [];
+	const entries: Entry[] = [];
 
-  for (const msg of msgRows) {
-    const msgData = JSON.parse(msg.data) as Record<string, unknown>;
-    const normalised = normaliseMessageData(msgData);
-    const parts = partsByMsg.get(msg.id) ?? [];
+	for (const msg of msgRows) {
+		const msgData = JSON.parse(msg.data) as Record<string, unknown>;
+		const normalised = normaliseMessageData(msgData);
+		const parts = partsByMsg.get(msg.id) ?? [];
 
-    const contentParts: Record<string, unknown>[] = [];
+		const contentParts: Record<string, unknown>[] = [];
 
-    for (const part of parts) {
-      const partData = JSON.parse(part.data) as Record<string, unknown>;
-      const partType = partData.type as string;
+		for (const part of parts) {
+			const partData = JSON.parse(part.data) as Record<string, unknown>;
+			const partType = partData.type as string;
 
-      if (partType === "step-start") {
-        entries.push({
-          type: "step_start",
-          id: part.id,
-          parentId: msg.id,
-          timestamp: msToIso(part.time_created),
-          data: partData,
-        });
-      } else if (partType === "step-finish") {
-        entries.push({
-          type: "step_finish",
-          id: part.id,
-          parentId: msg.id,
-          timestamp: msToIso(part.time_created),
-          data: partData,
-        });
-      } else {
-        contentParts.push(partData);
-      }
-    }
+			if (partType === "step-start") {
+				entries.push({
+					type: "step_start",
+					id: part.id,
+					parentId: msg.id,
+					timestamp: msToIso(part.time_created),
+					data: partData,
+				});
+			} else if (partType === "step-finish") {
+				entries.push({
+					type: "step_finish",
+					id: part.id,
+					parentId: msg.id,
+					timestamp: msToIso(part.time_created),
+					data: partData,
+				});
+			} else {
+				contentParts.push(partData);
+			}
+		}
 
-    const messageEntry: Record<string, unknown> = {
-      ...normalised,
-    };
-    if (contentParts.length > 0) {
-      messageEntry.content = contentParts;
-    }
+		const messageEntry: Record<string, unknown> = {
+			...normalised,
+		};
+		if (contentParts.length > 0) {
+			messageEntry.content = contentParts;
+		}
 
-    entries.push({
-      type: "message",
-      id: msg.id,
-      parentId: (normalised.parentID as string) ?? null,
-      timestamp: msToIso(msg.time_created),
-      message: messageEntry,
-    });
-  }
+		entries.push({
+			type: "message",
+			id: msg.id,
+			parentId: (normalised.parentID as string) ?? null,
+			timestamp: msToIso(msg.time_created),
+			message: messageEntry,
+		});
+	}
 
-  let eventCount = 0;
-  let sessionEventCount = 0;
-  for (const entry of entries) {
-    if (entry.type === "message") eventCount++;
-    else sessionEventCount++;
-  }
+	let eventCount = 0;
+	let sessionEventCount = 0;
+	for (const entry of entries) {
+		if (entry.type === "message") eventCount++;
+		else sessionEventCount++;
+	}
 
-  const firstUserMessage = entries.find(
-    (e) =>
-      e.type === "message" &&
-      (e.message as Record<string, unknown>)?.role === "user",
-  );
-  let title = sessionRow.title ?? undefined;
-  if (!title && firstUserMessage) {
-    const msgData = firstUserMessage.message as Record<string, unknown> | undefined;
-    if (msgData) {
-      const content = msgData.content as string | undefined;
-      if (content) title = content.slice(0, 80);
-    }
-  }
+	const firstUserMessage = entries.find(
+		(e) => e.type === "message" && (e.message as Record<string, unknown>)?.role === "user",
+	);
+	let title = sessionRow.title ?? undefined;
+	if (!title && firstUserMessage) {
+		const msgData = firstUserMessage.message as Record<string, unknown> | undefined;
+		if (msgData) {
+			const content = msgData.content as string | undefined;
+			if (content) title = content.slice(0, 80);
+		}
+	}
 
-  return {
-    header: {
-      type: "session" as const,
-      version: 1,
-      id: sessionRow.id,
-      timestamp: msToIso(sessionRow.time_created),
-      cwd,
-    },
-    entries,
-    title,
-    projectName,
-    eventCount,
-    sessionEventCount,
-  } satisfies ParsedSession;
+	return {
+		header: {
+			type: "session" as const,
+			version: 1,
+			id: sessionRow.id,
+			timestamp: msToIso(sessionRow.time_created),
+			cwd,
+		},
+		entries,
+		title,
+		projectName,
+		eventCount,
+		sessionEventCount,
+	} satisfies ParsedSession;
 }
 
 export class OpencodeAdapterService extends Context.Service<
-  OpencodeAdapterService,
-  {
-    readonly forEachSession: (
-      f: (parsed: ParsedSession, index: number, total: number) => Effect.Effect<void>,
-    ) => Effect.Effect<void, OpencodeError>;
-  }
+	OpencodeAdapterService,
+	{
+		readonly forEachSession: (
+			f: (parsed: ParsedSession, index: number, total: number) => Effect.Effect<void>,
+		) => Effect.Effect<void, OpencodeError>;
+	}
 >()("radius/OpencodeAdapterService") {
-  static readonly layer = Layer.effect(
-    OpencodeAdapterService,
-    Effect.gen(function* () {
-      const dbPath = join(homedir(), ".local/share/opencode/opencode.db");
+	static readonly layer = Layer.effect(
+		OpencodeAdapterService,
+		Effect.sync(() => {
+			const dbPath = join(homedir(), ".local/share/opencode/opencode.db");
 
-      const forEachSession = (
-        f: (parsed: ParsedSession, index: number, total: number) => Effect.Effect<void>,
-      ) =>
-        Effect.scoped(
-          Effect.gen(function* () {
-            const db = new DatabaseSync(dbPath, { readOnly: true });
-            yield* Effect.addFinalizer(() => Effect.sync(() => db.close()));
+			const forEachSession = (
+				f: (parsed: ParsedSession, index: number, total: number) => Effect.Effect<void>,
+			) =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const db = new DatabaseSync(dbPath, { readOnly: true });
+						yield* Effect.addFinalizer(() => Effect.sync(() => db.close()));
 
-            const { rows, projectMap, msgStmt, partStmt } = yield* Effect.try({
-              try: () => {
-                const sessionRows = db
-                  .prepare(
-                    `SELECT id, project_id, title, directory, time_created
+						const { rows, projectMap, msgStmt, partStmt } = yield* Effect.try({
+							try: () => {
+								const sessionRows = db
+									.prepare(
+										`SELECT id, project_id, title, directory, time_created
                      FROM session ORDER BY time_created ASC`,
-                  )
-                  .all() as Array<{
-                    id: string; project_id: string; title: string | null;
-                    directory: string | null; time_created: number;
-                  }>;
+									)
+									.all() as Array<{
+									id: string;
+									project_id: string;
+									title: string | null;
+									directory: string | null;
+									time_created: number;
+								}>;
 
-                if (sessionRows.length === 0)
-                  return { rows: [] as typeof sessionRows, projectMap: new Map(), msgStmt: null as null, partStmt: null as null };
+								if (sessionRows.length === 0)
+									return {
+										rows: [] as typeof sessionRows,
+										projectMap: new Map(),
+										msgStmt: null as null,
+										partStmt: null as null,
+									};
 
-                const projectIds = [...new Set(sessionRows.map((s) => s.project_id))];
-                const projectRows =
-                  projectIds.length > 0
-                    ? (db
-                        .prepare(
-                          `SELECT id, name, worktree FROM project WHERE id IN (${projectIds.map(() => "?").join(",")})`,
-                        )
-                        .all(...projectIds) as Array<{
-                          id: string; name: string | null; worktree: string | null;
-                        }>)
-                    : [];
-                const projectMap = new Map(projectRows.map((p) => [p.id, p] as const));
+								const projectIds = [...new Set(sessionRows.map((s) => s.project_id))];
+								const projectRows =
+									projectIds.length > 0
+										? (db
+												.prepare(
+													`SELECT id, name, worktree FROM project WHERE id IN (${projectIds.map(() => "?").join(",")})`,
+												)
+												.all(...projectIds) as Array<{
+												id: string;
+												name: string | null;
+												worktree: string | null;
+											}>)
+										: [];
+								const projectMap = new Map(projectRows.map((p) => [p.id, p] as const));
 
-                const msgStmt = db.prepare(
-                  "SELECT id, time_created, data FROM message WHERE session_id = ? ORDER BY time_created ASC",
-                );
-                const partStmt = db.prepare(
-                  "SELECT id, message_id, time_created, data FROM part WHERE session_id = ? ORDER BY time_created ASC",
-                );
+								const msgStmt = db.prepare(
+									"SELECT id, time_created, data FROM message WHERE session_id = ? ORDER BY time_created ASC",
+								);
+								const partStmt = db.prepare(
+									"SELECT id, message_id, time_created, data FROM part WHERE session_id = ? ORDER BY time_created ASC",
+								);
 
-                return { rows: sessionRows, projectMap, msgStmt, partStmt };
-              },
-              catch: (cause) =>
-                new OpencodeError({ cause, message: "Failed to load opencode metadata" }),
-            });
+								return { rows: sessionRows, projectMap, msgStmt, partStmt };
+							},
+							catch: (cause) =>
+								new OpencodeError({ cause, message: "Failed to load opencode metadata" }),
+						});
 
-            for (let i = 0; i < rows.length; i++) {
-              const row = rows[i]!;
-              const parsed = yield* Effect.try({
-                try: () => {
-                  const project = projectMap.get(row.project_id);
-                  const msgs = msgStmt!.all(row.id) as Array<{
-                    id: string; time_created: number; data: string;
-                  }>;
-                  const parts = partStmt!.all(row.id) as Array<{
-                    id: string; message_id: string; time_created: number; data: string;
-                  }>;
-                  return buildSession(row, project, msgs, parts);
-                },
-                catch: (cause) =>
-                  new OpencodeError({
-                    cause,
-                    message: `Failed to parse session ${row.id}`,
-                  }),
-              }).pipe(
-                Effect.catch((err) =>
-                  Effect.gen(function* () {
-                    yield* Effect.logError("opencode: skipping session", row.id, err.message);
-                    return null as ParsedSession | null;
-                  }),
-                ),
-              );
+						for (let i = 0; i < rows.length; i++) {
+							const row = rows[i]!;
+							const parsed = yield* Effect.try({
+								try: () => {
+									const project = projectMap.get(row.project_id);
+									const msgs = msgStmt!.all(row.id) as Array<{
+										id: string;
+										time_created: number;
+										data: string;
+									}>;
+									const parts = partStmt!.all(row.id) as Array<{
+										id: string;
+										message_id: string;
+										time_created: number;
+										data: string;
+									}>;
+									return buildSession(row, project, msgs, parts);
+								},
+								catch: (cause) =>
+									new OpencodeError({
+										cause,
+										message: `Failed to parse session ${row.id}`,
+									}),
+							}).pipe(
+								Effect.catch((err) =>
+									Effect.gen(function* () {
+										yield* Effect.logError("opencode: skipping session", row.id, err.message);
+										return null as ParsedSession | null;
+									}),
+								),
+							);
 
-              if (parsed) yield* f(parsed, i + 1, rows.length);
-            }
-          }),
-        );
+							if (parsed) yield* f(parsed, i + 1, rows.length);
+						}
+					}),
+				);
 
-      return OpencodeAdapterService.of({ forEachSession });
-    }),
-  );
+			return OpencodeAdapterService.of({ forEachSession });
+		}),
+	);
 }
