@@ -1,0 +1,36 @@
+name: Publish
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: "22.13"
+          cache: true
+
+      - name: Lint & typecheck
+        run: vp check
+
+      - name: Build
+        run: vp build
+
+      - name: Test
+        run: vp test run
+
+      - name: Publish
+        run: pnpm publish --access public --provenance --config.publish-branch=master
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -19,7 +19,7 @@
 		"pack": "vp pack",
 		"preview": "vp preview",
 		"start": "node bin/radius.mjs",
-		"prepublishOnly": "npm run build && npm run pack",
+		"typecheck": "vp check",
 		"test": "vp test run",
 		"prepare": "vp config",
 		"ui": "vpx shadcn@latest"

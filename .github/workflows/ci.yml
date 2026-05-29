@@ -16,15 +16,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup
         uses: voidzero-dev/setup-vp@v1
         with:
+          node-version: "22.13"
           cache: true
 
       - name: Lint & typecheck
-        run: vp check
+        run: vp check --type-aware
 
       - name: Build
         run: vp build
