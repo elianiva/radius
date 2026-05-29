@@ -8,7 +8,8 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Line, LineChart, Cell } from "recharts";
 import { AlertTriangle, BarChart3, MessageSquare, TrendingUp, Users, Hash } from "lucide-react";
-import { SWEAR_WORDS, type SwearSummary, type SwearMention } from "./swear-words";
+import { SWEAR_WORDS } from "./services/swear-types";
+import type { SwearSummary, SwearMention } from "./services/swear-types";
 import { Badge } from "~/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { Effect, Stream } from "effect";
+import { Stream } from "effect";
 
 import { AppRuntime } from "../app-runtime";
 import { PiAdapterService, type IngestProgress } from "~/features/sessions/adapters/pi";
@@ -26,23 +26,11 @@ export const importPiSessions = createServerFn({ method: "POST" }).handler(async
 export const getSessionEvents = createServerFn({ method: "GET" })
   .inputValidator((v: unknown) => v as { sessionId: string })
   .handler(({ data }) =>
-    AppRuntime.runPromise(
-      Effect.gen(function* () {
-        const result = yield* SessionService.use((svc) =>
-          svc.getEvents({ sessionId: data.sessionId }),
-        );
-        return result;
-      }),
-    ),
+    AppRuntime.runPromise(SessionService.use((svc) => svc.getEvents({ sessionId: data.sessionId }))),
   );
 
 export const getSessionsList = createServerFn({ method: "GET" })
   .inputValidator((v: unknown) => v as { cursor?: string })
   .handler(({ data }) =>
-    AppRuntime.runPromise(
-      Effect.gen(function* () {
-        const result = yield* SessionService.use((svc) => svc.list({ cursor: data.cursor }));
-        return result;
-      }),
-    ),
+    AppRuntime.runPromise(SessionService.use((svc) => svc.list({ cursor: data.cursor }))),
   );

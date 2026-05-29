@@ -2,7 +2,7 @@ import { Suspense, useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { getSessionsList } from "~/server/rpc/dashboard";
+import { getSessionsList } from "~/server/rpc/dashboard/sessions";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { Clock, MessageSquare, AlertTriangle, Coins, Table2, Grid3x3 } from "lucide-react";

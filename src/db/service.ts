@@ -13,7 +13,7 @@ export class Database extends Context.Service<Database, DatabaseShape>()("radius
 
   static readonly layer = Layer.effect(
     Database,
-    Effect.gen(function* () {
+    Effect.gen(function*() {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const home = yield* Config.string("HOME");

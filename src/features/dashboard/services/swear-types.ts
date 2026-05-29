@@ -1,6 +1,3 @@
-// ── Swear words lexicon ──
-// Treating swear words as errors — this is the big constant.
-// Add/remove as needed. Case-insensitive matching.
 export const SWEAR_WORDS = [
   "fuck",
   "fucking",
@@ -50,7 +47,7 @@ export type SwearWord = (typeof SWEAR_WORDS)[number];
 
 export interface SwearMention {
   word: SwearWord;
-  context: string; // snippet around the match
+  context: string;
   projectName: string;
   sessionTitle: string | null;
   sessionId: string;
