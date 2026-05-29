@@ -2,6 +2,7 @@ import { Context, Effect, Layer, Queue, Stream, Cause } from "effect";
 
 import { PiAdapterService, PiIngestError } from "./ingest/pi";
 import { OpencodeAdapterService, OpencodeError } from "./ingest/opencode";
+import type { ParsedSession } from "./ingest/adapter";
 import { PersistService, PersistError } from "./ingest/persist";
 import { MaterialisationService } from "./materialisation/service";
 import type { IngestProgress } from "./progress";
@@ -110,7 +111,7 @@ export class IngestService extends Context.Service<
       const ingestOpencode = Stream.callback<IngestProgress, IngestError>(
         (queue: Queue.Queue<IngestProgress, IngestError | Cause.Done>) =>
           Effect.gen(function* () {
-            yield* Effect.logInfo("opencode.ingest: Getting sessions");
+            yield* Effect.logInfo("opencode.ingest: Scanning sessions");
 
             yield* Queue.offer(queue, {
               stage: "opencode-discovering",
@@ -118,8 +119,9 @@ export class IngestService extends Context.Service<
               description: "Reading from opencode database",
             } as IngestProgress);
 
-            const sessionInfos = yield* opencodeAdapter.getAllSessions;
-            const totalSessions = sessionInfos.length;
+            // Single DB open, all sessions parsed in one pass
+            const allParsed: readonly ParsedSession[] = yield* opencodeAdapter.parseAll;
+            const totalSessions = allParsed.length;
 
             if (totalSessions === 0) {
               yield* Queue.offer(queue, {
@@ -127,11 +129,8 @@ export class IngestService extends Context.Service<
                 label: "Import complete",
                 description: "No opencode sessions found",
                 result: {
-                  files: 0,
-                  sessions: 0,
-                  projects: 0,
-                  events: 0,
-                  sessionEvents: 0,
+                  files: 0, sessions: 0, projects: 0,
+                  events: 0, sessionEvents: 0,
                 },
               } as IngestProgress);
               yield* Queue.end(queue);
@@ -139,67 +138,66 @@ export class IngestService extends Context.Service<
             }
 
             const seenProjects = new Set<string>();
-            let events = 0;
-            let sessionEvents = 0;
+            let totalEvents = 0;
+            let totalSessionEvents = 0;
 
-            for (let idx = 0; idx < sessionInfos.length; idx++) {
-              const { session } = sessionInfos[idx]!;
+            for (let idx = 0; idx < allParsed.length; idx++) {
+              const parsed = allParsed[idx]!;
               const sessionIndex = idx + 1;
 
-              const parsed = yield* opencodeAdapter.getSessionData(session.id);
-                events += parsed.eventCount;
-                sessionEvents += parsed.sessionEventCount;
-                seenProjects.add(parsed.header.cwd);
+              totalEvents += parsed.eventCount;
+              totalSessionEvents += parsed.sessionEventCount;
+              seenProjects.add(parsed.header.cwd);
 
-                yield* persist.persist(parsed);
-                yield* mat.materialiseSession(parsed);
+              yield* persist.persist(parsed);
+              yield* mat.materialiseSession(parsed);
 
-                yield* Effect.logInfo("opencode.ingest: Imported session").pipe(
-                  Effect.annotateLogs({
-                    sessionId: parsed.header.id,
-                    projectName: parsed.projectName,
-                    sessionIndex,
-                    totalSessions,
-                  }),
-                );
-
-                yield* Queue.offer(queue, {
-                  stage: "importing-session",
-                  label: `Importing ${parsed.projectName}`,
-                  description: `Session ${sessionIndex} of ${totalSessions}`,
-                  source: "opencode",
+              yield* Effect.logInfo("opencode.ingest: Imported session").pipe(
+                Effect.annotateLogs({
                   sessionId: parsed.header.id,
-                  project: parsed.projectName,
+                  projectName: parsed.projectName,
                   sessionIndex,
                   totalSessions,
-                } as IngestProgress);
-              }
-
-              yield* Effect.logInfo("opencode.ingest: Complete").pipe(
-                Effect.annotateLogs({
-                  sessions: totalSessions,
-                  projects: seenProjects.size,
-                  events,
-                  sessionEvents,
                 }),
               );
 
               yield* Queue.offer(queue, {
-                stage: "done",
-                label: "Import complete",
-                description: `${totalSessions} sessions imported`,
-                result: {
-                  files: totalSessions,
-                  sessions: totalSessions,
-                  projects: seenProjects.size,
-                  events,
-                  sessionEvents,
-                },
+                stage: "importing-session",
+                label: `Importing ${parsed.projectName}`,
+                description: `Session ${sessionIndex} of ${totalSessions}`,
+                source: "opencode",
+                sessionId: parsed.header.id,
+                project: parsed.projectName,
+                sessionIndex,
+                totalSessions,
               } as IngestProgress);
+            }
 
-              yield* Queue.end(queue);
-            }),
-        );
+            yield* Effect.logInfo("opencode.ingest: Complete").pipe(
+              Effect.annotateLogs({
+                sessions: totalSessions,
+                projects: seenProjects.size,
+                events: totalEvents,
+                sessionEvents: totalSessionEvents,
+              }),
+            );
+
+            yield* Queue.offer(queue, {
+              stage: "done",
+              label: "Import complete",
+              description: `${totalSessions} sessions imported`,
+              result: {
+                files: totalSessions,
+                sessions: totalSessions,
+                projects: seenProjects.size,
+                events: totalEvents,
+                sessionEvents: totalSessionEvents,
+              },
+            } as IngestProgress);
+
+            yield* Queue.end(queue);
+          }),
+      );
 
       return IngestService.of({
         ingestPi: Effect.succeed(ingestPi),

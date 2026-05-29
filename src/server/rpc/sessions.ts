@@ -24,6 +24,9 @@ export const importPiSessions = createServerFn({ method: "POST" }).handler(async
       if (done) break;
       yield value as IngestProgress;
     }
+  } catch (err) {
+    console.error("pi.import stream error:", err);
+    yield { stage: "done", label: "Import failed", description: String(err), result: { files: 0, sessions: 0, projects: 0, events: 0, sessionEvents: 0 } } as IngestProgress;
   } finally {
     reader.releaseLock();
   }
@@ -46,6 +49,9 @@ export const importOpencodeSessions = createServerFn({ method: "POST" }).handler
       if (done) break;
       yield value as IngestProgress;
     }
+  } catch (err) {
+    console.error("opencode.import stream error:", err);
+    yield { stage: "done", label: "Import failed", description: String(err), result: { files: 0, sessions: 0, projects: 0, events: 0, sessionEvents: 0 } } as IngestProgress;
   } finally {
     reader.releaseLock();
   }
