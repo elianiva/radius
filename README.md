@@ -12,18 +12,18 @@ Then open `http://localhost:3000`.
 
 ### Options
 
-| Flag          | Default                                 | Description                    |
-| ------------- | --------------------------------------- | ------------------------------ |
-| `--port, -p`  | `3000`                                  | Server port                    |
-| `--db-dir, -d`| Platform XDG data dir                   | Custom database directory      |
+| Flag           | Default               | Description               |
+| -------------- | --------------------- | ------------------------- |
+| `--port, -p`   | `3000`                | Server port               |
+| `--db-dir, -d` | Platform XDG data dir | Custom database directory |
 
 ### Database location
 
-| Platform | Path                                          |
-| -------- | --------------------------------------------- |
-| macOS    | `~/Library/Application Support/radius`        |
+| Platform | Path                                               |
+| -------- | -------------------------------------------------- |
+| macOS    | `~/Library/Application Support/radius`             |
 | Linux    | `$XDG_DATA_HOME/radius` or `~/.local/share/radius` |
-| Windows  | `%APPDATA%/radius`                            |
+| Windows  | `%APPDATA%/radius`                                 |
 
 ## Features
 

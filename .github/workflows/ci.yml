@@ -21,7 +21,6 @@ jobs:
       - name: Setup
         uses: voidzero-dev/setup-vp@v1
         with:
-          node-version: "22.13"
           cache: true
 
       - name: Lint & typecheck
