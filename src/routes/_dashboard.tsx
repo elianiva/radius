@@ -25,8 +25,8 @@ function Digest({ progress }: { progress: IngestProgress }) {
             <p className="text-sm font-medium">Scanning for sessions</p>
             <p className="text-xs text-muted-foreground">Looking through your pi data…</p>
           </div>
-          <div className="h-1 w-48 overflow-hidden rounded-full bg-muted">
-            <div className="h-full w-1/2 animate-pulse rounded-full bg-foreground/20" />
+          <div className="h-1 w-48 overflow-hidden rounded-none bg-muted">
+            <div className="h-full w-1/2 animate-pulse rounded-none bg-foreground/20" />
           </div>
         </div>
       );
@@ -66,8 +66,8 @@ function Digest({ progress }: { progress: IngestProgress }) {
               {progress.result.sessions} sessions imported
             </p>
           </div>
-          <div className="h-1 w-48 overflow-hidden rounded-full bg-muted">
-            <div className="h-full w-full rounded-full bg-primary" />
+          <div className="h-1 w-48 overflow-hidden rounded-none bg-muted">
+            <div className="h-full w-full rounded-none bg-primary" />
           </div>
         </div>
       );

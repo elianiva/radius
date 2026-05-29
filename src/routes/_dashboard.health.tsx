@@ -8,7 +8,6 @@ import {
   getErrorRateByProject,
 } from "~/server/rpc/dashboard";
 
-
 export const Route = createFileRoute("/_dashboard/health")({
   component: HealthRoute,
 });

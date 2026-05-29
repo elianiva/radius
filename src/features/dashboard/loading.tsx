@@ -84,7 +84,7 @@ export function ChartSkeleton({ className }: { className?: string }) {
 export function PieChartSkeleton() {
   return (
     <div className="flex items-center justify-center" aria-hidden="true">
-      <Shimmer className="size-40 rounded-full" />
+      <Shimmer className="size-40 rounded-none" />
     </div>
   );
 }
@@ -181,7 +181,7 @@ export function HeatmapSkeleton() {
         {Array.from({ length: 53 }, (_, i) => (
           <div key={i} className="flex flex-col gap-0.5">
             {Array.from({ length: 7 }, (_, j) => (
-              <Shimmer key={j} className="size-2.5 rounded-[1px]" />
+              <Shimmer key={j} className="size-2.5 rounded-none" />
             ))}
           </div>
         ))}
@@ -210,7 +210,7 @@ export function OverviewLoading() {
           </CardHeader>
           <CardContent>
             <div className="flex justify-center">
-              <Shimmer className="size-32 rounded-full" />
+              <Shimmer className="size-32 rounded-none" />
             </div>
           </CardContent>
         </Card>

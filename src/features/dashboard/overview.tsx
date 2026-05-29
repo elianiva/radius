@@ -1,9 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import {
-  ChartCardSkeleton,
-  ChartSkeleton,
-  HeatmapSkeleton,
-} from "./loading";
+import { ChartCardSkeleton, ChartSkeleton, HeatmapSkeleton } from "./loading";
 import {
   ChartContainer,
   ChartTooltip,
@@ -159,9 +155,7 @@ function ActivityHeatmap({ data }: { data: DashboardMetrics["costOverTime"] }) {
   );
 }
 
-function SummaryCards({ cards }: {
-  cards: OverviewProps["cards"];
-}) {
+function SummaryCards({ cards }: { cards: OverviewProps["cards"] }) {
   const items = [
     {
       description: "Total Sessions",
@@ -269,7 +263,7 @@ function CostOverTimeChart({ data }: { data: CostOverTime[] }) {
 
   return (
     <Card className="lg:col-span-2">
-      <CardHeader className="flex-row items-center justify-between">
+      <CardHeader className="flex! flex-row items-center justify-between">
         <div>
           <CardTitle>Cost Over Time</CardTitle>
           <CardDescription>Daily cost and session count</CardDescription>
@@ -434,19 +428,11 @@ function ThinkingLevelChart({ data }: { data: ThinkingLevelUsage[] }) {
           <BarChart data={data} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
             <XAxis type="number" tickLine={false} axisLine={false} />
-            <YAxis
-              type="category"
-              dataKey="level"
-              tickLine={false}
-              axisLine={false}
-              width={100}
-            />
+            <YAxis type="category" dataKey="level" tickLine={false} axisLine={false} width={100} />
             <ChartTooltip
               content={
                 <ChartTooltipContent
-                  formatter={(value) => (
-                    <span className="font-mono">{value} sessions</span>
-                  )}
+                  formatter={(value) => <span className="font-mono">{value} sessions</span>}
                 />
               }
             />
@@ -486,9 +472,9 @@ function StopReasonsChart({ data }: { data: StopReason[] }) {
                     {r.count} ({pct}%)
                   </span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-2 w-full overflow-hidden rounded-none bg-muted">
                   <div
-                    className="h-full rounded-full transition-all"
+                    className="h-full rounded-none transition-all"
                     style={{
                       width: `${pct}%`,
                       backgroundColor: COLORS[i % COLORS.length],
@@ -507,7 +493,15 @@ function StopReasonsChart({ data }: { data: StopReason[] }) {
   );
 }
 
-export function Overview({ cards, costOverTime, modelUsage, topProjects, thinkingLevels, stopReasons, isLoading = {} }: OverviewProps) {
+export function Overview({
+  cards,
+  costOverTime,
+  modelUsage,
+  topProjects,
+  thinkingLevels,
+  stopReasons,
+  isLoading = {},
+}: OverviewProps) {
   return (
     <div className="flex flex-col gap-4">
       <SummaryCards cards={cards} />
@@ -519,14 +513,28 @@ export function Overview({ cards, costOverTime, modelUsage, topProjects, thinkin
           <CostOverTimeChart data={costOverTime!} />
         )}
         {isLoading.modelUsage ? (
-          <Card><CardHeader><CardDescription className="h-3 w-24 animate-pulse rounded bg-muted" /></CardHeader><CardContent className="flex justify-center"><div className="size-32 animate-pulse rounded-full bg-muted" /></CardContent></Card>
+          <Card>
+            <CardHeader>
+              <CardDescription className="h-3 w-24 animate-pulse rounded bg-muted" />
+            </CardHeader>
+            <CardContent className="flex justify-center">
+              <div className="size-32 animate-pulse rounded-none bg-muted" />
+            </CardContent>
+          </Card>
         ) : (
           <ModelUsageChart data={modelUsage!} />
         )}
       </div>
 
       {isLoading.topProjects ? (
-        <Card><CardHeader><CardDescription className="h-3 w-24 animate-pulse rounded bg-muted" /></CardHeader><CardContent><ChartSkeleton className="h-50" /></CardContent></Card>
+        <Card>
+          <CardHeader>
+            <CardDescription className="h-3 w-24 animate-pulse rounded bg-muted" />
+          </CardHeader>
+          <CardContent>
+            <ChartSkeleton className="h-50" />
+          </CardContent>
+        </Card>
       ) : (
         <TopProjectsChart data={topProjects!} />
       )}
@@ -538,14 +546,38 @@ export function Overview({ cards, costOverTime, modelUsage, topProjects, thinkin
           <ThinkingLevelChart data={thinkingLevels!} />
         )}
         {isLoading.stopReasons ? (
-          <Card><CardHeader><CardDescription className="h-3 w-28 animate-pulse rounded bg-muted" /></CardHeader><CardContent><div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => (<div key={i}><div className="mb-1 flex items-center justify-between"><div className="h-2.5 w-20 animate-pulse rounded bg-muted" /><div className="h-2.5 w-12 animate-pulse rounded bg-muted" /></div><div className="h-2 w-full animate-pulse rounded bg-muted" /></div>))}</div></CardContent></Card>
+          <Card>
+            <CardHeader>
+              <CardDescription className="h-3 w-28 animate-pulse rounded bg-muted" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i}>
+                    <div className="mb-1 flex items-center justify-between">
+                      <div className="h-2.5 w-20 animate-pulse rounded bg-muted" />
+                      <div className="h-2.5 w-12 animate-pulse rounded bg-muted" />
+                    </div>
+                    <div className="h-2 w-full animate-pulse rounded bg-muted" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         ) : (
           <StopReasonsChart data={stopReasons!} />
         )}
       </div>
 
       {isLoading.costOverTime ? (
-        <Card><CardHeader><CardDescription className="h-3 w-16 animate-pulse rounded bg-muted" /></CardHeader><CardContent><HeatmapSkeleton /></CardContent></Card>
+        <Card>
+          <CardHeader>
+            <CardDescription className="h-3 w-16 animate-pulse rounded bg-muted" />
+          </CardHeader>
+          <CardContent>
+            <HeatmapSkeleton />
+          </CardContent>
+        </Card>
       ) : (
         <ActivityHeatmap data={costOverTime!} />
       )}

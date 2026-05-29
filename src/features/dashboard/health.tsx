@@ -12,6 +12,7 @@ import type { ToolMetrics, ExtendedSession, PaginatedSessions } from "./types";
 import { AlertTriangle, Wrench, DollarSign, Coins, Bug, Activity, TrendingUp } from "lucide-react";
 import { formatCost, formatTokens, formatDuration } from "~/lib/utils";
 import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 import { DataTable, type Column } from "~/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
 import {
@@ -265,22 +266,22 @@ function ToolErrorBreakdown({
           </CardDescription>
         </div>
         <div className="flex flex-wrap gap-1">
-          <button
+          <Button
+            size="xs"
+            variant={tab === "global" ? "default" : "secondary"}
             onClick={() => setTab("global")}
-            className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${tab === "global" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"
-              }`}
           >
             All
-          </button>
+          </Button>
           {projects.slice(0, 5).map((p) => (
-            <button
+            <Button
               key={p}
+              size="xs"
+              variant={tab === p ? "default" : "secondary"}
               onClick={() => setTab(p)}
-              className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${tab === p ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"
-                }`}
             >
               {p.length > 10 ? p.slice(0, 10) + "…" : p}
-            </button>
+            </Button>
           ))}
         </div>
       </CardHeader>
