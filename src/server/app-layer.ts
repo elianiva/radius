@@ -1,7 +1,12 @@
 import { NodeFileSystem, NodePath } from "@effect/platform-node";
 import { Layer } from "effect";
 import { Database } from "~/db/service";
-import { PiAdapterService } from "~/features/sessions/adapters/pi";
+import { PiAdapterService } from "~/features/sessions/ingest/pi";
+import { PersistService } from "~/features/sessions/ingest/persist";
+import { SessionSummaryMatsService } from "~/features/sessions/materialisation/summary";
+import { SwearMatsService } from "~/features/sessions/materialisation/swear";
+import { MaterialisationService } from "~/features/sessions/materialisation/service";
+import { IngestService } from "~/features/sessions/service";
 import { SessionService } from "~/features/sessions/services/session";
 import { OverviewService } from "~/features/dashboard/services/overview";
 import { HealthService } from "~/features/dashboard/services/health";
@@ -11,8 +16,6 @@ import { SwearService } from "~/features/dashboard/services/swear";
 
 export const PlatformLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer);
 
-// Layer.mergeAll does NOT auto-resolve deps between merged layers.
-// Provide deps explicitly: each service gets the layers it needs to build.
 const DatabaseLayer = Database.layer.pipe(Layer.provide(PlatformLayer));
 const SessionServiceLayer = SessionService.layer.pipe(Layer.provide(DatabaseLayer));
 
@@ -24,8 +27,23 @@ const SessionsLayer = SessionsService.layer.pipe(Layer.provide(CommonDepsLayer))
 const ProjectLayer = ProjectService.layer.pipe(Layer.provide(CommonDepsLayer));
 const SwearLayer = SwearService.layer.pipe(Layer.provide(CommonDepsLayer));
 
+// Ingestion layer graph
+const PiAdapterLayer = PiAdapterService.layer.pipe(Layer.provide(PlatformLayer));
+const PersistLayer = PersistService.layer.pipe(Layer.provide(DatabaseLayer));
+const SummaryMatsLayer = SessionSummaryMatsService.layer.pipe(Layer.provide(DatabaseLayer));
+const SwearMatsLayer = SwearMatsService.layer.pipe(Layer.provide(DatabaseLayer));
+const MatsLayer = MaterialisationService.layer.pipe(
+  Layer.provide(SummaryMatsLayer),
+  Layer.provide(SwearMatsLayer),
+);
+const IngestLayer = IngestService.layer.pipe(
+  Layer.provide(PiAdapterLayer),
+  Layer.provide(PersistLayer),
+  Layer.provide(MatsLayer),
+);
+
 export const AppLayer = Layer.mergeAll(
-  PiAdapterService.layer.pipe(Layer.provide(DatabaseLayer), Layer.provide(PlatformLayer)),
+  IngestLayer,
   SessionServiceLayer,
   OverviewLayer,
   HealthLayer,

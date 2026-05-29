@@ -39,3 +39,22 @@ events. Not conversation data — auxiliary signals for deeper analysis.
 
 Has the same id/session_id/time_created/data structure as Event but no
 seq or parent_id.
+
+## Session Summary
+
+A materialised, pre-computed rollup of one session's event stream.
+Contains duration, message/user/assistant counts, tool call/error counts,
+total tokens, total cost, models used (as JSON array), and stop reasons
+(as JSON map). Computed during ingestion and upserted on re-ingest.
+
+Not a primary domain entity — a derived view optimised for dashboard
+aggregations.
+
+## Swear Entry
+
+A materialised occurrence of a swear word found in a user message during
+ingestion. Captures the word, surrounding context snippet, linked session
+and project. Computed once at ingest time and never refreshed.
+
+Not a primary domain entity — an analytics artifact produced by a
+best-effort scan during import.

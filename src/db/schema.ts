@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core";
 
 export const project = sqliteTable("project", {
   id: text("id").primaryKey(),
@@ -43,6 +43,46 @@ export const event = sqliteTable(
   (table) => [index("idx_event_session_id").on(table.sessionId)],
 );
 export type Event = typeof event.$inferSelect;
+
+export const sessionSummary = sqliteTable("session_summary", {
+  id: text("id").primaryKey().references(() => session.id),
+  projectId: text("project_id").notNull(),
+  createdAt: integer("created_at").notNull(),
+  duration: integer("duration").notNull(),
+  messageCount: integer("message_count").notNull(),
+  userMsgCount: integer("user_msg_count").notNull(),
+  asstMsgCount: integer("asst_msg_count").notNull(),
+  toolCallCount: integer("tool_call_count").notNull(),
+  toolErrorCount: integer("tool_error_count").notNull(),
+  totalTokens: integer("total_tokens").notNull(),
+  totalCost: real("total_cost").notNull(),
+  models: text("models").notNull(),
+  stopReasons: text("stop_reasons").notNull(),
+});
+export type SessionSummary = typeof sessionSummary.$inferSelect;
+export type NewSessionSummary = typeof sessionSummary.$inferInsert;
+
+export const swearEntry = sqliteTable(
+  "swear_entry",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => session.id),
+    projectName: text("project_name").notNull(),
+    sessionTitle: text("session_title"),
+    word: text("word").notNull(),
+    context: text("context").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => ({
+    sessionIdx: index("idx_swear_entry_session_id").on(table.sessionId),
+    wordIdx: index("idx_swear_entry_word").on(table.word),
+    projectIdx: index("idx_swear_entry_project").on(table.projectName),
+  }),
+);
+export type SwearEntry = typeof swearEntry.$inferSelect;
+export type NewSwearEntry = typeof swearEntry.$inferInsert;
 
 export const sessionEvent = sqliteTable(
   "session_event",

@@ -3,12 +3,13 @@ import { getRequest } from "@tanstack/react-start/server";
 import { Stream } from "effect";
 
 import { AppRuntime } from "../app-runtime";
-import { PiAdapterService, type IngestProgress } from "~/features/sessions/adapters/pi";
+import { IngestService } from "~/features/sessions/service";
+import type { IngestProgress } from "~/features/sessions/progress";
 import { SessionService } from "~/features/sessions/services/session";
 
 export const importPiSessions = createServerFn({ method: "POST" }).handler(async function* () {
   const { signal } = getRequest();
-  const stream = await AppRuntime.runPromise(PiAdapterService.use((pi) => pi.ingest), { signal });
+  const stream = await AppRuntime.runPromise(IngestService.use((svc) => svc.ingest), { signal });
   const context = await AppRuntime.context();
 
   const readable = Stream.toReadableStreamWith(stream, context);

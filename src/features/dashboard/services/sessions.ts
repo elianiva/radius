@@ -1,12 +1,8 @@
 import { Context, Data, Effect, Layer } from "effect";
 
 import { Database } from "~/db/service";
-import { session, project } from "~/db/schema";
-import {
-  SessionService,
-  type SessionMetrics,
-} from "~/features/sessions/services/session";
-import type { ExtendedSession, PaginatedSessions } from "./health";
+import { session, project, sessionSummary } from "~/db/schema";
+import { eq, sql } from "drizzle-orm";
 
 export class SessionsError extends Data.TaggedError("SessionsError")<{
   readonly cause: unknown;
@@ -22,44 +18,28 @@ interface SessionsServiceShape {
   }) => Effect.Effect<PaginatedSessions, SessionsError>;
 }
 
-function toExtendedSession(s: SessionMetrics): ExtendedSession {
-  return {
-    id: s.id,
-    projectName: s.projectName,
-    title: s.title,
-    duration: s.duration,
-    totalCost: s.totalCost,
-    totalTokens: s.totalTokens,
-    models: s.models,
-    messageCount: s.messageCount,
-    toolCallCount: s.toolCallCount,
-    toolErrorCount: s.toolErrorCount,
-    createdAt: s.createdAt,
-  };
+export interface ExtendedSession {
+  id: string;
+  projectName: string;
+  title: string | null;
+  duration: number;
+  totalCost: number;
+  totalTokens: number;
+  models: string[];
+  messageCount: number;
+  toolCallCount: number;
+  toolErrorCount: number;
+  createdAt: number;
+}
+
+export interface PaginatedSessions {
+  items: ExtendedSession[];
+  nextCursor: string | null;
+  totalPages: number;
+  currentPage: number;
 }
 
 const PAGE_SIZE = 15;
-
-function paginate(
-  sessions: SessionMetrics[],
-  sortFn: (a: SessionMetrics, b: SessionMetrics) => number,
-  cursor?: string,
-): PaginatedSessions {
-  const sorted = [...sessions].sort(sortFn);
-
-  let startIndex = 0;
-  if (cursor) {
-    const cursorIndex = sorted.findIndex((s) => s.id === cursor);
-    if (cursorIndex >= 0) startIndex = cursorIndex + 1;
-  }
-
-  const items = sorted.slice(startIndex, startIndex + PAGE_SIZE).map(toExtendedSession);
-  const nextCursor = startIndex + PAGE_SIZE < sorted.length ? items[items.length - 1].id : null;
-  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
-  const currentPage = Math.floor(startIndex / PAGE_SIZE) + 1;
-
-  return { items, nextCursor, totalPages, currentPage };
-}
 
 export class SessionsService extends Context.Service<SessionsService, SessionsServiceShape>()(
   "radius/SessionsService",
@@ -68,7 +48,6 @@ export class SessionsService extends Context.Service<SessionsService, SessionsSe
     SessionsService,
     Effect.gen(function* () {
       const db = yield* Database;
-      const sessionSvc = yield* SessionService;
 
       const list = Effect.fn("listSessions")(function* (params: {
         search?: string;
@@ -76,47 +55,75 @@ export class SessionsService extends Context.Service<SessionsService, SessionsSe
         sortDir?: "asc" | "desc";
         cursor?: string;
       }) {
-        const sessionRows = db.select().from(session).all();
-        const projectRows = db.select().from(project).all();
-        const projectNameMap = new Map(projectRows.map((p) => [p.id, p.name]));
+        // Determine sort column and direction from session_summary
+        const sortCol = params.sortBy === "duration"
+          ? sessionSummary.duration
+          : params.sortBy === "totalCost"
+            ? sessionSummary.totalCost
+            : params.sortBy === "totalTokens"
+              ? sessionSummary.totalTokens
+              : params.sortBy === "messageCount"
+                ? sessionSummary.messageCount
+                : params.sortBy === "toolErrorCount"
+                  ? sessionSummary.toolErrorCount
+                  : sessionSummary.createdAt;
 
-        const allMetrics = yield* Effect.all(
-          sessionRows.map((sess) =>
-            sessionSvc.computeSessionMetrics({
-              session: sess,
-              projectName: projectNameMap.get(sess.projectId) ?? "Unknown",
-            }),
-          ),
-          { concurrency: 10 },
-        );
+        const dir = params.sortDir === "asc" ? sql`asc` : sql`desc`;
 
-        let filtered = allMetrics;
+        const rows = yield* Effect.try({
+          try: () => {
+            const q = db
+              .select({
+                id: sessionSummary.id,
+                projectId: sessionSummary.projectId,
+                createdAt: sessionSummary.createdAt,
+                duration: sessionSummary.duration,
+                messageCount: sessionSummary.messageCount,
+                totalCost: sessionSummary.totalCost,
+                totalTokens: sessionSummary.totalTokens,
+                models: sessionSummary.models,
+                toolCallCount: sessionSummary.toolCallCount,
+                toolErrorCount: sessionSummary.toolErrorCount,
+                title: session.title,
+                projectName: project.name,
+              })
+              .from(sessionSummary)
+              .leftJoin(session, eq(sessionSummary.id, session.id))
+              .leftJoin(project, eq(sessionSummary.projectId, project.id))
+              .orderBy(sql`${sortCol} ${dir}`)
+              .limit(PAGE_SIZE + 1);
 
-        if (params.search) {
-          const q = params.search.toLowerCase();
-          filtered = allMetrics.filter(
-            (s) =>
-              (s.title ?? "").toLowerCase().includes(q) ||
-              s.projectName.toLowerCase().includes(q) ||
-              s.models.some((m) => m.toLowerCase().includes(q)),
-          );
-        }
+            if (params.cursor) {
+              q.where(sql`${sessionSummary.id} < ${params.cursor}`);
+            }
 
-        const sortFn = (a: SessionMetrics, b: SessionMetrics): number => {
-          let cmp = 0;
-          switch (params.sortBy) {
-            case "createdAt": cmp = a.createdAt - b.createdAt; break;
-            case "duration": cmp = a.duration - b.duration; break;
-            case "totalCost": cmp = a.totalCost - b.totalCost; break;
-            case "totalTokens": cmp = a.totalTokens - b.totalTokens; break;
-            case "messageCount": cmp = a.messageCount - b.messageCount; break;
-            case "toolErrorCount": cmp = a.toolErrorCount - b.toolErrorCount; break;
-            default: cmp = a.createdAt - b.createdAt;
-          }
-          return params.sortDir === "asc" ? cmp : -cmp;
+            return q.all();
+          },
+          catch: (cause) => new SessionsError({ cause, message: "Failed to list sessions" }),
+        });
+
+        const hasMore = rows.length > PAGE_SIZE;
+        const items = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+        const nextCursor = hasMore ? items[items.length - 1].id : null;
+
+        return {
+          items: items.map((r) => ({
+            id: r.id,
+            projectName: r.projectName ?? r.projectId,
+            title: r.title,
+            duration: r.duration,
+            totalCost: r.totalCost,
+            totalTokens: r.totalTokens,
+            models: JSON.parse(r.models) as string[],
+            messageCount: r.messageCount,
+            toolCallCount: r.toolCallCount,
+            toolErrorCount: r.toolErrorCount,
+            createdAt: r.createdAt,
+          })),
+          nextCursor,
+          totalPages: 0,
+          currentPage: 0,
         };
-
-        return paginate(filtered, sortFn, params.cursor);
       });
 
       return SessionsService.of({ list });

@@ -1,16 +1,23 @@
 import { Context, Data, Effect, Layer } from "effect";
 
 import { Database } from "~/db/service";
-import { session, project } from "~/db/schema";
-import { SessionService } from "~/features/sessions/services/session";
+import { swearEntry } from "~/db/schema";
+import { sql } from "drizzle-orm";
+import type { SwearMention, SwearSummary } from "./swear-types";
 
-import { SWEAR_WORDS } from "./swear-types";
-import type { SwearWord, SwearMention, SwearSummary } from "./swear-types";
+export interface SwearEntryData {
+  sessionId: string;
+  projectName: string;
+  sessionTitle: string | null;
+  word: string;
+  context: string;
+  createdAt: number;
+}
 
 export class SwearError extends Data.TaggedError("SwearError")<{
   readonly cause: unknown;
   readonly message: string;
-}> { }
+}> {}
 
 interface SwearServiceShape {
   readonly getSummary: () => Effect.Effect<SwearSummary, SwearError>;
@@ -23,113 +30,128 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
     SwearService,
     Effect.gen(function*() {
       const db = yield* Database;
-      const sessionSvc = yield* SessionService;
 
       const getSummary = Effect.fn("getSwearMetrics")(function*() {
-        const sessionRows = db.select().from(session).all();
-        const projectRows = db.select().from(project).all();
-        const projectNameMap = new Map(projectRows.map((p) => [p.id, p.name]));
+        const countRows = yield* Effect.try({
+          try: () =>
+            db
+              .select({
+                totalMentions: sql<number>`count(*)`,
+                uniqueSessions: sql<number>`count(distinct ${swearEntry.sessionId})`,
+                uniqueProjects: sql<number>`count(distinct ${swearEntry.projectName})`,
+              })
+              .from(swearEntry)
+              .all(),
+          catch: (cause) => new SwearError({ cause, message: "Failed to count swear entries" }),
+        });
+        const counts = countRows[0]!;
 
-        const allSessionMetrics = yield* Effect.all(
-          sessionRows.map((sess) =>
-            sessionSvc.computeSessionMetrics({
-              session: sess,
-              projectName: projectNameMap.get(sess.projectId) ?? "Unknown",
-            }),
-          ),
-          { concurrency: 10 },
-        );
+        const wordRows = yield* Effect.try({
+          try: () =>
+            db
+              .select({
+                word: swearEntry.word,
+                count: sql<number>`count(*)`,
+              })
+              .from(swearEntry)
+              .groupBy(swearEntry.word)
+              .orderBy(sql`count(*) desc`)
+              .limit(10)
+              .all(),
+          catch: (cause) => new SwearError({ cause, message: "Failed to get top swear words" }),
+        });
+        const topWords = wordRows.map((r) => ({ word: r.word, count: r.count }));
 
-        const allMentions: SwearMention[] = [];
+        const trendRows = yield* Effect.try({
+          try: () =>
+            db
+              .select({
+                date: sql<string>`date(${swearEntry.createdAt} / 1000, 'unixepoch')`,
+                count: sql<number>`count(*)`,
+              })
+              .from(swearEntry)
+              .groupBy(sql`date(${swearEntry.createdAt} / 1000, 'unixepoch')`)
+              .orderBy(sql`date(${swearEntry.createdAt} / 1000, 'unixepoch')`)
+              .all(),
+          catch: (cause) => new SwearError({ cause, message: "Failed to get swear trend" }),
+        });
+        const swearTrend = trendRows.map((r) => ({ date: r.date, count: r.count }));
 
-        for (const sm of allSessionMetrics) {
-          const events = yield* sessionSvc.getEvents({ sessionId: sm.id });
-          const userMessages = events.filter((e) => {
-            if (e.eventType !== "message") return false;
-            try {
-              const parsed = JSON.parse(e.data) as Record<string, unknown>;
-              return parsed.role === "user";
-            } catch {
-              return false;
-            }
+        const projectRows = yield* Effect.try({
+          try: () =>
+            db
+              .select({
+                project: swearEntry.projectName,
+                count: sql<number>`count(*)`,
+                sessions: sql<number>`count(distinct ${swearEntry.sessionId})`,
+              })
+              .from(swearEntry)
+              .groupBy(swearEntry.projectName)
+              .orderBy(sql`count(*) desc`)
+              .all(),
+          catch: (cause) => new SwearError({ cause, message: "Failed to get swear by project" }),
+        });
+        const swearByProject = projectRows.map((r) => ({
+          project: r.project,
+          count: r.count,
+          sessions: r.sessions,
+        }));
+
+        const sessionRows = yield* Effect.try({
+          try: () =>
+            db
+              .select({
+                sessionId: swearEntry.sessionId,
+                mentionCount: sql<number>`count(*)`,
+              })
+              .from(swearEntry)
+              .groupBy(swearEntry.sessionId)
+              .orderBy(sql`count(*) desc`)
+              .limit(10)
+              .all(),
+          catch: (cause) => new SwearError({ cause, message: "Failed to get top swear sessions" }),
+        });
+
+        const topSessionIds = sessionRows.map((r) => r.sessionId);
+        let topSessions: SwearMention[] = [];
+
+        if (topSessionIds.length > 0) {
+          const mentionRows = yield* Effect.try({
+            try: () =>
+              db
+                .select()
+                .from(swearEntry)
+                .all(),
+            catch: (cause) => new SwearError({ cause, message: "Failed to get swear entries" }),
           });
 
-          for (const msg of userMessages) {
-            try {
-              const parsed = JSON.parse(msg.data) as Record<string, unknown>;
-              const content = (parsed.content ?? parsed.text ?? "") as string;
-              const matches = findSwearWords(content);
-
-              for (const match of matches) {
-                allMentions.push({
-                  word: match.word,
-                  context: extractContext(content, match.index, match.word.length),
-                  projectName: sm.projectName,
-                  sessionTitle: sm.title,
-                  sessionId: sm.id,
-                  createdAt: sm.createdAt,
-                });
-              }
-            } catch {
-              continue;
-            }
+          const sessionMap = new Map<string, typeof mentionRows>();
+          for (const r of mentionRows) {
+            const existing = sessionMap.get(r.sessionId) ?? [];
+            existing.push(r);
+            sessionMap.set(r.sessionId, existing);
           }
 
-          if (allSessionMetrics.indexOf(sm) % 10 === 9) {
-            yield* Effect.yieldNow();
-          }
+          topSessions = topSessionIds
+            .map((sid) => {
+              const entries = sessionMap.get(sid) ?? [];
+              const first = entries[0];
+              return {
+                word: first?.word ?? "",
+                context: first?.context ?? "",
+                projectName: first?.projectName ?? "",
+                sessionTitle: first?.sessionTitle ?? null,
+                sessionId: sid,
+                createdAt: first?.createdAt ?? 0,
+              };
+            })
+            .filter((s): s is SwearMention => s.word !== "");
         }
-
-        const wordCounts = new Map<string, number>();
-        for (const m of allMentions) {
-          wordCounts.set(m.word, (wordCounts.get(m.word) ?? 0) + 1);
-        }
-        const topWords = Array.from(wordCounts.entries())
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 10)
-          .map(([word, count]) => ({ word, count }));
-
-        const projectMap = new Map<string, { count: number; sessions: Set<string> }>();
-        for (const m of allMentions) {
-          let entry = projectMap.get(m.projectName);
-          if (!entry) {
-            entry = { count: 0, sessions: new Set() };
-            projectMap.set(m.projectName, entry);
-          }
-          entry.count++;
-          entry.sessions.add(m.sessionId);
-        }
-        const swearByProject = Array.from(projectMap.entries())
-          .map(([project, data]) => ({ project, count: data.count, sessions: data.sessions.size }))
-          .sort((a, b) => b.count - a.count);
-
-        const dateMap = new Map<string, number>();
-        for (const m of allMentions) {
-          const date = new Date(m.createdAt).toISOString().split("T")[0]!;
-          dateMap.set(date, (dateMap.get(date) ?? 0) + 1);
-        }
-        const swearTrend = Array.from(dateMap.entries())
-          .map(([date, count]) => ({ date, count }))
-          .sort((a, b) => a.date.localeCompare(b.date));
-
-        const sessionSwearMap = new Map<string, SwearMention[]>();
-        for (const m of allMentions) {
-          const existing = sessionSwearMap.get(m.sessionId) ?? [];
-          existing.push(m);
-          sessionSwearMap.set(m.sessionId, existing);
-        }
-        const topSessions = Array.from(sessionSwearMap.entries())
-          .sort((a, b) => b[1].length - a[1].length)
-          .slice(0, 10)
-          .map(([, mentions]) => mentions[0]!);
-
-        const uniqueSessions = new Set(allMentions.map((m) => m.sessionId));
-        const uniqueProjects = new Set(allMentions.map((m) => m.projectName));
 
         return {
-          totalMentions: allMentions.length,
-          totalSessions: uniqueSessions.size,
-          uniqueProjects: uniqueProjects.size,
+          totalMentions: counts.totalMentions,
+          totalSessions: counts.uniqueSessions,
+          uniqueProjects: counts.uniqueProjects,
           topWords,
           topSessions,
           swearTrend,
@@ -140,28 +162,4 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
       return SwearService.of({ getSummary });
     }),
   );
-}
-
-function findSwearWords(text: string): { word: SwearWord; index: number }[] {
-  const lower = text.toLowerCase();
-  const results: { word: SwearWord; index: number }[] = [];
-  for (const word of SWEAR_WORDS) {
-    let startIndex = 0;
-    while (true) {
-      const idx = lower.indexOf(word, startIndex);
-      if (idx === -1) break;
-      results.push({ word, index: idx });
-      startIndex = idx + word.length;
-    }
-  }
-  return results.sort((a, b) => a.index - b.index);
-}
-
-function extractContext(text: string, index: number, wordLength: number, radius = 40): string {
-  const start = Math.max(0, index - radius);
-  const end = Math.min(text.length, index + wordLength + radius);
-  let snippet = text.slice(start, end);
-  if (start > 0) snippet = "…" + snippet;
-  if (end < text.length) snippet = snippet + "…";
-  return snippet;
 }

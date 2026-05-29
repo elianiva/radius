@@ -5,7 +5,7 @@ import { Button } from "~/components/ui/button";
 import { Loader2, Sparkles, BarChart3, Folder, List, HeartPulse, Meh } from "lucide-react";
 import { importPiSessions } from "~/server/rpc/sessions";
 import { getOverviewCards } from "~/server/rpc/dashboard/overview";
-import type { IngestProgress } from "~/features/sessions/adapters/pi";
+import type { IngestProgress } from "~/features/sessions/progress";
 import { OverviewLoading } from "~/features/dashboard/loading";
 import { AppNav } from "~/components/app-nav";
 
@@ -14,64 +14,41 @@ export const Route = createFileRoute("/_dashboard")({
 });
 
 function Digest({ progress }: { progress: IngestProgress }) {
-  switch (progress.stage) {
-    case "finding-sessions":
-      return (
-        <div className="flex flex-col items-center gap-3">
-          <div className="relative">
+  const pct =
+    "sessionIndex" in progress && "totalSessions" in progress
+      ? Math.round((progress.sessionIndex / progress.totalSessions) * 100)
+      : undefined;
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div className="relative">
+        {progress.stage === "done" ? (
+          <Sparkles className="size-8 text-primary animate-in zoom-in fade-in duration-300" />
+        ) : (
+          <>
             <Loader2 className="size-8 animate-spin text-muted-foreground" />
-          </div>
-          <div className="space-y-1 text-center">
-            <p className="text-sm font-medium">Scanning for sessions</p>
-            <p className="text-xs text-muted-foreground">Looking through your pi data…</p>
-          </div>
-          <div className="h-1 w-48 overflow-hidden rounded-none bg-muted">
-            <div className="h-full w-1/2 animate-pulse rounded-none bg-foreground/20" />
-          </div>
-        </div>
-      );
-    case "importing-session":
-      const pct = Math.round((progress.sessionIndex / progress.totalSessions) * 100);
-      return (
-        <div className="flex flex-col items-center gap-3">
-          <div className="relative">
-            <Loader2 className="size-8 animate-spin text-muted-foreground" />
-            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums text-muted-foreground">
-              {pct}
-            </span>
-          </div>
-          <div className="space-y-1 text-center">
-            <p className="text-sm font-medium">Importing {progress.project}</p>
-            <p className="text-xs text-muted-foreground">
-              Session {progress.sessionIndex} of {progress.totalSessions}
-            </p>
-          </div>
-          <div className="h-1 w-48 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-foreground/20 transition-all duration-500"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-        </div>
-      );
-    case "done":
-      return (
-        <div className="flex flex-col items-center gap-3">
-          <div className="animate-in zoom-in fade-in duration-300">
-            <Sparkles className="size-8 text-primary" />
-          </div>
-          <div className="space-y-1 text-center">
-            <p className="text-sm font-medium">Import complete</p>
-            <p className="text-xs text-muted-foreground">
-              {progress.result.sessions} sessions imported
-            </p>
-          </div>
-          <div className="h-1 w-48 overflow-hidden rounded-none bg-muted">
-            <div className="h-full w-full rounded-none bg-primary" />
-          </div>
-        </div>
-      );
-  }
+            {pct !== undefined && (
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums text-muted-foreground">
+                {pct}
+              </span>
+            )}
+          </>
+        )}
+      </div>
+      <div className="space-y-1 text-center">
+        <p className="text-sm font-medium">{progress.label}</p>
+        <p className="text-xs text-muted-foreground">{progress.description}</p>
+      </div>
+      <div className="h-1 w-48 overflow-hidden rounded-none bg-muted">
+        <div
+          className={`h-full rounded-none transition-all duration-500 ${
+            progress.stage === "done" ? "bg-primary" : "bg-foreground/20"
+          }`}
+          style={{ width: pct !== undefined ? `${pct}%` : progress.stage === "finding-sessions" ? "50%" : "100%" }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function DashboardLayout() {
