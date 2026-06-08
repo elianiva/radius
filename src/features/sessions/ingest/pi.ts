@@ -1,7 +1,7 @@
 import { Context, Data, Effect, FileSystem, Layer, Path } from "effect";
 import { homedir } from "node:os";
 
-import type { Entry, ParsedSession, SessionHeader } from "./adapter";
+import { resolveEffectiveLeafTimestamp, type Entry, type ParsedSession, type SessionHeader } from "./adapter";
 
 export class PiIngestError extends Data.TaggedError("PiIngestError")<{
 	readonly cause: unknown;
@@ -118,7 +118,11 @@ export class PiAdapterService extends Context.Service<
 					);
 				}
 
-				const header: SessionHeader = JSON.parse(lines[0]);
+				const header: SessionHeader = yield* Effect.try({
+					try: () => JSON.parse(lines[0]),
+					catch: (cause) =>
+						new PiIngestError({ cause, message: `Failed to parse session header: ${filePath}` }),
+				});
 				if (header.type !== "session") {
 					return yield* Effect.fail(
 						new PiIngestError({
@@ -128,7 +132,11 @@ export class PiAdapterService extends Context.Service<
 					);
 				}
 
-				const entries = lines.slice(1).map((l) => JSON.parse(l) as Entry);
+				const entries: readonly Entry[] = yield* Effect.try({
+					try: () => lines.slice(1).map((l) => JSON.parse(l) as Entry),
+					catch: (cause) =>
+						new PiIngestError({ cause, message: `Failed to parse session entries: ${filePath}` }),
+				});
 				const projectName = path.basename(header.cwd);
 
 				let eventCount = 0;
@@ -141,14 +149,27 @@ export class PiAdapterService extends Context.Service<
 					}
 				}
 
-				const firstUserMessage = entries.find(
-					(e) => e.type === "message" && e.message?.role === "user",
-				);
-				const title = firstUserMessage
-					? extractTextContent(firstUserMessage.message?.content)
-					: undefined;
+				// Title: latest session_info name > first user message
+				let title: string | undefined;
+				for (let i = entries.length - 1; i >= 0; i--) {
+					const e = entries[i];
+					if (e.type === "session_info" && typeof e.name === "string" && e.name.trim()) {
+						title = e.name.trim().slice(0, 80);
+						break;
+					}
+				}
+				if (!title) {
+					const firstUserMessage = entries.find(
+						(e) => e.type === "message" && e.message?.role === "user",
+					);
+					title = firstUserMessage
+						? extractTextContent(firstUserMessage.message?.content)
+						: undefined;
+				}
 
-				return { header, entries, title, projectName, eventCount, sessionEventCount };
+				const effectiveLeafTimestamp = resolveEffectiveLeafTimestamp(header, entries);
+
+				return { header, entries, title, projectName, eventCount, sessionEventCount, effectiveLeafTimestamp };
 			});
 
 			return PiAdapterService.of({ discover, parse });

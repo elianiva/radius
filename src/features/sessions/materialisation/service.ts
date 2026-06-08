@@ -24,6 +24,7 @@ export class MaterialisationService extends Context.Service<
 					header: parsed.header,
 					entries: parsed.entries,
 					projectName: parsed.projectName,
+					effectiveLeafTimestamp: parsed.effectiveLeafTimestamp,
 				});
 				yield* swearMats.materialise({
 					sessionId: parsed.header.id,

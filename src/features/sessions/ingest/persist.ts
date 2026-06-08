@@ -35,6 +35,8 @@ function cleanEntryData(entry: Record<string, unknown>): Record<string, unknown>
 	return rest;
 }
 
+const BATCH_SIZE = 200;
+
 export class PersistService extends Context.Service<
 	PersistService,
 	{ readonly persist: (session: ParsedSession) => Effect.Effect<void, PersistError> }
@@ -81,52 +83,68 @@ export class PersistService extends Context.Service<
 					catch: (cause) => new PersistError({ cause, message: "Failed to upsert session" }),
 				});
 
+				// Batch entries into bulk inserts to avoid per-row Effect overhead
+				const eventRows: Array<{
+					id: string;
+					sessionId: string;
+					parentId: string | null;
+					eventType: string;
+					createdAt: number;
+					data: string;
+				}> = [];
+				const sessionEventRows: Array<{
+					id: string;
+					sessionId: string;
+					eventType: string;
+					createdAt: number;
+					data: string;
+				}> = [];
+
 				for (const entry of session.entries) {
 					const data = cleanEntryData(entry);
 					const entryType = entry.type as string;
 					const mappedType = mapEventType(entryType);
+					const serialized = JSON.stringify(data);
 
-					// step_start and step_finish go into event table (conversation control flow)
-					// everything else follows the existing mapping
 					if (
 						entryType === "message" ||
 						entryType === "step_start" ||
 						entryType === "step_finish"
 					) {
-						yield* Effect.try({
-							try: () =>
-								db
-									.insert(schema.event)
-									.values({
-										id: entry.id,
-										sessionId: session.header.id,
-										parentId: entry.parentId,
-										eventType: mappedType,
-										createdAt: new Date(entry.timestamp).getTime(),
-										data: JSON.stringify(data),
-									})
-									.onConflictDoNothing()
-									.run(),
-							catch: (cause) => new PersistError({ cause, message: "Failed to upsert event" }),
+						eventRows.push({
+							id: entry.id,
+							sessionId: session.header.id,
+							parentId: entry.parentId,
+							eventType: mappedType,
+							createdAt: new Date(entry.timestamp).getTime(),
+							data: serialized,
 						});
 					} else {
-						yield* Effect.try({
-							try: () =>
-								db
-									.insert(schema.sessionEvent)
-									.values({
-										id: entry.id,
-										sessionId: session.header.id,
-										eventType: mappedType,
-										createdAt: new Date(entry.timestamp).getTime(),
-										data: JSON.stringify(data),
-									})
-									.onConflictDoNothing()
-									.run(),
-							catch: (cause) =>
-								new PersistError({ cause, message: "Failed to upsert session event" }),
+						sessionEventRows.push({
+							id: entry.id,
+							sessionId: session.header.id,
+							eventType: mappedType,
+							createdAt: new Date(entry.timestamp).getTime(),
+							data: serialized,
 						});
 					}
+				}
+
+				for (let i = 0; i < eventRows.length; i += BATCH_SIZE) {
+					const batch = eventRows.slice(i, i + BATCH_SIZE);
+					yield* Effect.try({
+						try: () => db.insert(schema.event).values(batch).onConflictDoNothing().run(),
+						catch: (cause) => new PersistError({ cause, message: "Failed to batch insert events" }),
+					});
+				}
+
+				for (let i = 0; i < sessionEventRows.length; i += BATCH_SIZE) {
+					const batch = sessionEventRows.slice(i, i + BATCH_SIZE);
+					yield* Effect.try({
+						try: () => db.insert(schema.sessionEvent).values(batch).onConflictDoNothing().run(),
+						catch: (cause) =>
+							new PersistError({ cause, message: "Failed to batch insert session events" }),
+					});
 				}
 			});
 

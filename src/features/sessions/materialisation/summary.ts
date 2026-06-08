@@ -36,6 +36,7 @@ function isUsage(value: unknown): value is Usage {
 function computeSummary(
 	header: SessionHeader,
 	entries: readonly Entry[],
+	effectiveLeafTimestamp: number,
 ): Omit<typeof schema.sessionSummary.$inferInsert, "id"> & { id: string } {
 	let userMsgCount = 0;
 	let asstMsgCount = 0;
@@ -45,7 +46,6 @@ function computeSummary(
 	let totalCost = 0;
 	const models = new Set<string>();
 	const stopReasons: Record<string, number> = {};
-	let lastTs = new Date(header.timestamp).getTime();
 
 	for (const entry of entries) {
 		if (entry.type !== "message") continue;
@@ -54,9 +54,6 @@ function computeSummary(
 
 		const role = msg.role as string | undefined;
 		if (!role) continue;
-
-		const ts = new Date(entry.timestamp).getTime();
-		if (ts > lastTs) lastTs = ts;
 
 		if (role === "user") {
 			userMsgCount++;
@@ -78,7 +75,7 @@ function computeSummary(
 	}
 
 	const createdAt = new Date(header.timestamp).getTime();
-	const duration = lastTs - createdAt;
+	const duration = effectiveLeafTimestamp - createdAt;
 
 	return {
 		id: header.id,
@@ -104,6 +101,7 @@ export class SessionSummaryMatsService extends Context.Service<
 			header: SessionHeader;
 			entries: readonly Entry[];
 			projectName: string;
+			effectiveLeafTimestamp: number;
 		}) => Effect.Effect<void, SummaryError>;
 	}
 >()("radius/SessionSummaryMatsService") {
@@ -115,12 +113,14 @@ export class SessionSummaryMatsService extends Context.Service<
 			const materialise = Effect.fn("materialiseSessionSummary")(function* ({
 				header,
 				entries,
+				effectiveLeafTimestamp,
 			}: {
 				header: SessionHeader;
 				entries: readonly Entry[];
 				projectName: string;
+				effectiveLeafTimestamp: number;
 			}) {
-				const summary = computeSummary(header, entries);
+				const summary = computeSummary(header, entries, effectiveLeafTimestamp);
 
 				yield* Effect.try({
 					try: () =>

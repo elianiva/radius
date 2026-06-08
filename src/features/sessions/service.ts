@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Queue, Stream, Cause } from "effect";
+import { Cause, Context, Effect, Layer, Queue, Stream } from "effect";
 
 import { PiAdapterService, PiIngestError } from "./ingest/pi";
 import { OpencodeAdapterService, OpencodeError } from "./ingest/opencode";
@@ -51,33 +51,59 @@ export class IngestService extends Context.Service<
 							const fileInfo = files[idx]!;
 							const sessionIndex = idx + 1;
 
-							const parsed = yield* piAdapter.parse(fileInfo);
-							events += parsed.eventCount;
-							sessionEvents += parsed.sessionEventCount;
-							seenProjects.add(parsed.header.cwd);
+							// Catch ALL causes (typed errors, defects, interrupts) so
+							// one bad session never kills the entire import.
+							yield* Effect.gen(function* () {
+								const parsed = yield* piAdapter.parse(fileInfo);
 
-							yield* persist.persist(parsed);
-							yield* mat.materialiseSession(parsed);
+								yield* persist.persist(parsed).pipe(
+									Effect.catch((err) =>
+										Effect.gen(function* () {
+											yield* Effect.logError("pi: persist failed", err);
+										}),
+									),
+								);
+								yield* mat.materialiseSession(parsed).pipe(
+									Effect.catch((err) =>
+										Effect.gen(function* () {
+											yield* Effect.logError("pi: materialise failed", err);
+										}),
+									),
+								);
 
-							yield* Effect.logInfo("pi.ingest: Imported session").pipe(
-								Effect.annotateLogs({
+								events += parsed.eventCount;
+								sessionEvents += parsed.sessionEventCount;
+								seenProjects.add(parsed.header.cwd);
+
+								yield* Effect.logInfo("pi.ingest: Imported session").pipe(
+									Effect.annotateLogs({
+										sessionId: parsed.header.id,
+										projectName: parsed.projectName,
+										sessionIndex,
+										totalSessions,
+									}),
+								);
+
+								yield* Queue.offer(queue, {
+									stage: "importing-session",
+									label: `Importing ${parsed.projectName}`,
+									description: `Session ${sessionIndex} of ${totalSessions}`,
+									source: "pi",
 									sessionId: parsed.header.id,
-									projectName: parsed.projectName,
+									project: parsed.projectName,
 									sessionIndex,
 									totalSessions,
-								}),
+								} as IngestProgress);
+							}).pipe(
+								Effect.catchCause((cause) =>
+									Effect.gen(function* () {
+										yield* Effect.logError(
+											`pi.ingest: session ${sessionIndex} failed, skipping`,
+											cause,
+										);
+									}),
+								),
 							);
-
-							yield* Queue.offer(queue, {
-								stage: "importing-session",
-								label: `Importing ${parsed.projectName}`,
-								description: `Session ${sessionIndex} of ${totalSessions}`,
-								source: "pi",
-								sessionId: parsed.header.id,
-								project: parsed.projectName,
-								sessionIndex,
-								totalSessions,
-							} as IngestProgress);
 						}
 
 						yield* Effect.logInfo("pi.ingest: Complete").pipe(

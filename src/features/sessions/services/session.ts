@@ -214,8 +214,14 @@ export class SessionService extends Context.Service<SessionService, SessionServi
 					}
 				}
 
-				const duration =
-					events.length > 0 ? events[events.length - 1]!.createdAt - params.session.createdAt : 0;
+				// Use last message event for duration, not bookkeeping entries
+				let lastMessageTs = params.session.createdAt;
+				for (const evt of events) {
+					if (evt.eventType === "message" && evt.createdAt > lastMessageTs) {
+						lastMessageTs = evt.createdAt;
+					}
+				}
+				const duration = lastMessageTs - params.session.createdAt;
 
 				return {
 					id: params.session.id,

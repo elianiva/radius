@@ -142,6 +142,13 @@ function buildSession(
 		}
 	}
 
+	// Opencode entries are flat — last entry is the real leaf
+	let effectiveLeafTimestamp = new Date(msToIso(sessionRow.time_created)).getTime();
+	for (const entry of entries) {
+		const ts = new Date(entry.timestamp).getTime();
+		if (ts > effectiveLeafTimestamp) effectiveLeafTimestamp = ts;
+	}
+
 	return {
 		header: {
 			type: "session" as const,
@@ -155,6 +162,7 @@ function buildSession(
 		projectName,
 		eventCount,
 		sessionEventCount,
+		effectiveLeafTimestamp,
 	} satisfies ParsedSession;
 }
 
