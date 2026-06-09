@@ -66,7 +66,10 @@ export const getExpensiveSessions = createServerFn({ method: "GET" })
 	.inputValidator((v: unknown) => {
 		if (!v || typeof v !== "object") return { cursor: undefined, filters: undefined };
 		const raw = (v as Record<string, unknown>).data as Record<string, unknown> | undefined;
-		return { cursor: raw?.cursor as string | undefined, filters: raw?.filters as DashboardFilters | undefined };
+		return {
+			cursor: raw?.cursor as string | undefined,
+			filters: raw?.filters as DashboardFilters | undefined,
+		};
 	})
 	.handler(({ data }) =>
 		AppRuntime.runPromise(
@@ -79,7 +82,10 @@ export const getHighTokenSessions = createServerFn({ method: "GET" })
 	.inputValidator((v: unknown) => {
 		if (!v || typeof v !== "object") return { cursor: undefined, filters: undefined };
 		const raw = (v as Record<string, unknown>).data as Record<string, unknown> | undefined;
-		return { cursor: raw?.cursor as string | undefined, filters: raw?.filters as DashboardFilters | undefined };
+		return {
+			cursor: raw?.cursor as string | undefined,
+			filters: raw?.filters as DashboardFilters | undefined,
+		};
 	})
 	.handler(({ data }) =>
 		AppRuntime.runPromise(
@@ -92,7 +98,10 @@ export const getErrorProneSessions = createServerFn({ method: "GET" })
 	.inputValidator((v: unknown) => {
 		if (!v || typeof v !== "object") return { cursor: undefined, filters: undefined };
 		const raw = (v as Record<string, unknown>).data as Record<string, unknown> | undefined;
-		return { cursor: raw?.cursor as string | undefined, filters: raw?.filters as DashboardFilters | undefined };
+		return {
+			cursor: raw?.cursor as string | undefined,
+			filters: raw?.filters as DashboardFilters | undefined,
+		};
 	})
 	.handler(({ data }) =>
 		AppRuntime.runPromise(

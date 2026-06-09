@@ -522,40 +522,40 @@ export function HealthDashboard({
 }: HealthProps) {
 	return (
 		<FilterContext.Provider value={filters}>
-		<div className="flex flex-col gap-4">
-			{isLoading.summary ? <StatCardGridSkeleton count={5} /> : <SummaryBar summary={summary!} />}
+			<div className="flex flex-col gap-4">
+				{isLoading.summary ? <StatCardGridSkeleton count={5} /> : <SummaryBar summary={summary!} />}
 
-			<div className="grid gap-4 lg:grid-cols-3">
-				{isLoading.errorTrend ? (
-					<ChartCardSkeleton rows={4} className="lg:col-span-2" />
+				<div className="grid gap-4 lg:grid-cols-3">
+					{isLoading.errorTrend ? (
+						<ChartCardSkeleton rows={4} className="lg:col-span-2" />
+					) : (
+						<ErrorTrendChart data={errorTrend!} />
+					)}
+					{isLoading.errorRateByProject ? (
+						<Card>
+							<CardHeader>
+								<CardDescription className="h-3 w-36 animate-pulse rounded bg-muted" />
+							</CardHeader>
+							<CardContent>
+								<BarListSkeleton count={5} />
+							</CardContent>
+						</Card>
+					) : (
+						<ErrorRateByProject data={errorRateByProject!} />
+					)}
+				</div>
+
+				{isLoading.toolErrors ? (
+					<ChartCardSkeleton rows={5} />
 				) : (
-					<ErrorTrendChart data={errorTrend!} />
+					<ToolErrorBreakdown
+						mostFailingTools={toolErrors!.mostFailingTools}
+						failingToolsByProject={toolErrors!.failingToolsByProject}
+					/>
 				)}
-				{isLoading.errorRateByProject ? (
-					<Card>
-						<CardHeader>
-							<CardDescription className="h-3 w-36 animate-pulse rounded bg-muted" />
-						</CardHeader>
-						<CardContent>
-							<BarListSkeleton count={5} />
-						</CardContent>
-					</Card>
-				) : (
-					<ErrorRateByProject data={errorRateByProject!} />
-				)}
+
+				<SessionTables />
 			</div>
-
-			{isLoading.toolErrors ? (
-				<ChartCardSkeleton rows={5} />
-			) : (
-				<ToolErrorBreakdown
-					mostFailingTools={toolErrors!.mostFailingTools}
-					failingToolsByProject={toolErrors!.failingToolsByProject}
-				/>
-			)}
-
-			<SessionTables />
-		</div>
 		</FilterContext.Provider>
 	);
 }

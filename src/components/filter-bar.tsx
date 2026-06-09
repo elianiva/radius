@@ -4,12 +4,7 @@ import { Calendar } from "~/components/ui/calendar";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Separator } from "~/components/ui/separator";
-import {
-	CalendarDays,
-	Folder,
-	Search,
-	X,
-} from "lucide-react";
+import { CalendarDays, Folder, Search, X } from "lucide-react";
 import {
 	startOfDay,
 	endOfDay,
@@ -23,11 +18,26 @@ import type { DashboardFilters } from "~/features/dashboard/services/filters";
 
 const PRESETS = [
 	{ label: "Today", getRange: () => ({ from: startOfDay(new Date()), to: new Date() }) },
-	{ label: "Yesterday", getRange: () => ({ from: startOfDay(subDays(new Date(), 1)), to: endOfDay(subDays(new Date(), 1)) }) },
-	{ label: "This week", getRange: () => ({ from: startOfWeek(new Date(), { weekStartsOn: 1 }), to: new Date() }) },
-	{ label: "Last 7 days", getRange: () => ({ from: startOfDay(subDays(new Date(), 6)), to: new Date() }) },
+	{
+		label: "Yesterday",
+		getRange: () => ({
+			from: startOfDay(subDays(new Date(), 1)),
+			to: endOfDay(subDays(new Date(), 1)),
+		}),
+	},
+	{
+		label: "This week",
+		getRange: () => ({ from: startOfWeek(new Date(), { weekStartsOn: 1 }), to: new Date() }),
+	},
+	{
+		label: "Last 7 days",
+		getRange: () => ({ from: startOfDay(subDays(new Date(), 6)), to: new Date() }),
+	},
 	{ label: "This month", getRange: () => ({ from: startOfMonth(new Date()), to: new Date() }) },
-	{ label: "Last 30 days", getRange: () => ({ from: startOfDay(subDays(new Date(), 29)), to: new Date() }) },
+	{
+		label: "Last 30 days",
+		getRange: () => ({ from: startOfDay(subDays(new Date(), 29)), to: new Date() }),
+	},
 	{ label: "This year", getRange: () => ({ from: startOfYear(new Date()), to: new Date() }) },
 	{ label: "All time", getRange: () => ({ from: undefined, to: undefined }) },
 ] as const;
@@ -49,7 +59,8 @@ function formatRange(from?: number, to?: number): string {
 
 	if (fromDate.getTime() === startOfDay(now).getTime()) return "Today";
 	if (fromDate.getTime() === startOfDay(subDays(now, 1)).getTime()) return "Yesterday";
-	if (fromDate.getTime() === startOfWeek(now, { weekStartsOn: 1 }).getTime()) return format(fromDate, "MMM d") + " – Today";
+	if (fromDate.getTime() === startOfWeek(now, { weekStartsOn: 1 }).getTime())
+		return format(fromDate, "MMM d") + " – Today";
 	if (
 		fromDate.getTime() === startOfDay(subDays(now, 6)).getTime() &&
 		toDate.toDateString() === now.toDateString()
@@ -67,50 +78,72 @@ export function FilterBar({ filters, onFiltersChange, projects, models }: Filter
 	const [projectOpen, setProjectOpen] = useState(false);
 	const [modelOpen, setModelOpen] = useState(false);
 	const [modelQuery, setModelQuery] = useState("");
-	const [tempDateRange, setTempDateRange] = useState<{ from?: Date; to?: Date }>();
 
-	const hasFilters = filters.dateFrom || filters.dateTo || filters.projectIds?.length || filters.model;
+	const selectedDateRange = useMemo(() => {
+		if (!filters.dateFrom && !filters.dateTo) return undefined;
+		return {
+			from: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
+			to: filters.dateTo ? new Date(filters.dateTo) : undefined,
+		};
+	}, [filters.dateFrom, filters.dateTo]);
 
-	const displayRange = useMemo(() => formatRange(filters.dateFrom, filters.dateTo), [filters.dateFrom, filters.dateTo]);
+	const hasFilters =
+		filters.dateFrom || filters.dateTo || filters.projectIds?.length || filters.model;
 
-	const handlePreset = useCallback((preset: PresetLabel) => {
-		const presetFn = PRESETS.find((p) => p.label === preset);
-		if (!presetFn) return;
-		const range = presetFn.getRange();
-		onFiltersChange({
-			...filters,
-			dateFrom: range.from?.getTime(),
-			dateTo: range.to?.getTime(),
-		});
-		setDateOpen(false);
-	}, [filters, onFiltersChange]);
+	const displayRange = useMemo(
+		() => formatRange(filters.dateFrom, filters.dateTo),
+		[filters.dateFrom, filters.dateTo],
+	);
 
-	const handleDateSelect = useCallback((range: { from?: Date; to?: Date } | undefined) => {
-		if (!range) return;
-		setTempDateRange(range);
-		if (range.from && range.to) {
+	const handlePreset = useCallback(
+		(preset: PresetLabel) => {
+			const presetFn = PRESETS.find((p) => p.label === preset);
+			if (!presetFn) return;
+			const range = presetFn.getRange();
 			onFiltersChange({
 				...filters,
-				dateFrom: startOfDay(range.from).getTime(),
-				dateTo: endOfDay(range.to).getTime(),
+				dateFrom: range.from?.getTime(),
+				dateTo: range.to?.getTime(),
 			});
 			setDateOpen(false);
-		}
-	}, [filters, onFiltersChange]);
+		},
+		[filters, onFiltersChange],
+	);
 
-	const handleProjectToggle = useCallback((projectId: string) => {
-		const current = filters.projectIds ?? [];
-		const next = current.includes(projectId)
-			? current.filter((id) => id !== projectId)
-			: [...current, projectId];
-		onFiltersChange({ ...filters, projectIds: next.length > 0 ? next : undefined });
-	}, [filters, onFiltersChange]);
+	const handleDateSelect = useCallback(
+		(range: { from?: Date; to?: Date } | undefined) => {
+			if (!range) return;
+			if (range.from && range.to) {
+				onFiltersChange({
+					...filters,
+					dateFrom: startOfDay(range.from).getTime(),
+					dateTo: endOfDay(range.to).getTime(),
+				});
+				setDateOpen(false);
+			}
+		},
+		[filters, onFiltersChange],
+	);
 
-	const handleModelSelect = useCallback((model: string) => {
-		setModelOpen(false);
-		setModelQuery("");
-		onFiltersChange({ ...filters, model });
-	}, [filters, onFiltersChange]);
+	const handleProjectToggle = useCallback(
+		(projectId: string) => {
+			const current = filters.projectIds ?? [];
+			const next = current.includes(projectId)
+				? current.filter((id) => id !== projectId)
+				: [...current, projectId];
+			onFiltersChange({ ...filters, projectIds: next.length > 0 ? next : undefined });
+		},
+		[filters, onFiltersChange],
+	);
+
+	const handleModelSelect = useCallback(
+		(model: string) => {
+			setModelOpen(false);
+			setModelQuery("");
+			onFiltersChange({ ...filters, model });
+		},
+		[filters, onFiltersChange],
+	);
 
 	const handleClear = useCallback(() => {
 		onFiltersChange({});
@@ -126,17 +159,14 @@ export function FilterBar({ filters, onFiltersChange, projects, models }: Filter
 		<div className="flex items-center gap-2">
 			{/* Date filter */}
 			<Popover open={dateOpen} onOpenChange={setDateOpen}>
-				<PopoverTrigger render={(props) => (
-					<Button
-						{...props}
-						variant="outline"
-						size="xs"
-						className="gap-1.5"
-					>
-						<CalendarDays className="size-3" />
-						{displayRange}
-					</Button>
-				)} />
+				<PopoverTrigger
+					render={(props) => (
+						<Button {...props} variant="outline" size="xs" className="gap-1.5">
+							<CalendarDays className="size-3" />
+							{displayRange}
+						</Button>
+					)}
+				/>
 				<PopoverContent className="w-auto p-0" align="start">
 					<div className="flex">
 						<div className="border-r p-2 space-y-1">
@@ -155,7 +185,7 @@ export function FilterBar({ filters, onFiltersChange, projects, models }: Filter
 						<div className="p-2">
 							<Calendar
 								mode="range"
-								selected={tempDateRange as { from: Date; to: Date } | undefined}
+								selected={selectedDateRange as { from: Date; to: Date } | undefined}
 								onSelect={handleDateSelect}
 								numberOfMonths={1}
 								captionLayout="label"
@@ -168,19 +198,16 @@ export function FilterBar({ filters, onFiltersChange, projects, models }: Filter
 			{/* Project filter */}
 			{projects.length > 0 && (
 				<Popover open={projectOpen} onOpenChange={setProjectOpen}>
-					<PopoverTrigger render={(props) => (
-						<Button
-							{...props}
-							variant="outline"
-							size="xs"
-							className="gap-1.5"
-						>
-							<Folder className="size-3" />
-							{filters.projectIds?.length
-								? `Projects (${filters.projectIds.length})`
-								: "Projects"}
-						</Button>
-					)} />
+					<PopoverTrigger
+						render={(props) => (
+							<Button {...props} variant="outline" size="xs" className="gap-1.5">
+								<Folder className="size-3" />
+								{filters.projectIds?.length
+									? `Projects (${filters.projectIds.length})`
+									: "Projects"}
+							</Button>
+						)}
+					/>
 					<PopoverContent className="w-56 p-2" align="start">
 						<div className="max-h-64 overflow-y-auto space-y-0.5">
 							{projects.map((p) => (
@@ -205,17 +232,14 @@ export function FilterBar({ filters, onFiltersChange, projects, models }: Filter
 			{/* Model filter */}
 			{models.length > 0 && (
 				<Popover open={modelOpen} onOpenChange={setModelOpen}>
-					<PopoverTrigger render={(props) => (
-						<Button
-							{...props}
-							variant="outline"
-							size="xs"
-							className="gap-1.5"
-						>
-							<Search className="size-3" />
-							{filters.model ?? "Model"}
-						</Button>
-					)} />
+					<PopoverTrigger
+						render={(props) => (
+							<Button {...props} variant="outline" size="xs" className="gap-1.5">
+								<Search className="size-3" />
+								{filters.model ?? "Model"}
+							</Button>
+						)}
+					/>
 					<PopoverContent className="w-56 p-2" align="start">
 						<Input
 							className="mb-2 h-7 text-xs"
@@ -253,11 +277,7 @@ export function FilterBar({ filters, onFiltersChange, projects, models }: Filter
 			)}
 
 			{hasFilters && (
-				<Button
-					variant="ghost"
-					size="icon-xs"
-					onClick={handleClear}
-				>
+				<Button variant="ghost" size="icon-xs" onClick={handleClear}>
 					<X className="size-3" />
 				</Button>
 			)}

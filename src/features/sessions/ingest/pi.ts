@@ -1,7 +1,12 @@
 import { Context, Data, Effect, FileSystem, Layer, Path } from "effect";
 import { homedir } from "node:os";
 
-import { resolveEffectiveLeafTimestamp, type Entry, type ParsedSession, type SessionHeader } from "./adapter";
+import {
+	resolveEffectiveLeafTimestamp,
+	type Entry,
+	type ParsedSession,
+	type SessionHeader,
+} from "./adapter";
 
 export class PiIngestError extends Data.TaggedError("PiIngestError")<{
 	readonly cause: unknown;
@@ -169,7 +174,15 @@ export class PiAdapterService extends Context.Service<
 
 				const effectiveLeafTimestamp = resolveEffectiveLeafTimestamp(header, entries);
 
-				return { header, entries, title, projectName, eventCount, sessionEventCount, effectiveLeafTimestamp };
+				return {
+					header,
+					entries,
+					title,
+					projectName,
+					eventCount,
+					sessionEventCount,
+					effectiveLeafTimestamp,
+				};
 			});
 
 			return PiAdapterService.of({ discover, parse });

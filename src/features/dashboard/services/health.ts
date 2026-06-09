@@ -63,15 +63,33 @@ const PAGE_SIZE = 15;
 
 interface HealthServiceShape {
 	readonly getSummary: (filters?: DashboardFilters) => Effect.Effect<HealthSummary, HealthError>;
-	readonly getErrorTrend: (filters?: DashboardFilters) => Effect.Effect<ErrorTrendEntry[], HealthError>;
-	readonly getToolErrors: (filters?: DashboardFilters) => Effect.Effect<
-		{ mostFailingTools: ToolMetrics[]; failingToolsByProject: { project: string; tools: ToolMetrics[] }[] },
+	readonly getErrorTrend: (
+		filters?: DashboardFilters,
+	) => Effect.Effect<ErrorTrendEntry[], HealthError>;
+	readonly getToolErrors: (
+		filters?: DashboardFilters,
+	) => Effect.Effect<
+		{
+			mostFailingTools: ToolMetrics[];
+			failingToolsByProject: { project: string; tools: ToolMetrics[] }[];
+		},
 		HealthError
 	>;
-	readonly getErrorRateByProject: (filters?: DashboardFilters) => Effect.Effect<ErrorRateByProjectEntry[], HealthError>;
-	readonly getExpensiveSessions: (filters?: DashboardFilters, cursor?: string) => Effect.Effect<PaginatedSessions, HealthError>;
-	readonly getHighTokenSessions: (filters?: DashboardFilters, cursor?: string) => Effect.Effect<PaginatedSessions, HealthError>;
-	readonly getErrorProneSessions: (filters?: DashboardFilters, cursor?: string) => Effect.Effect<PaginatedSessions, HealthError>;
+	readonly getErrorRateByProject: (
+		filters?: DashboardFilters,
+	) => Effect.Effect<ErrorRateByProjectEntry[], HealthError>;
+	readonly getExpensiveSessions: (
+		filters?: DashboardFilters,
+		cursor?: string,
+	) => Effect.Effect<PaginatedSessions, HealthError>;
+	readonly getHighTokenSessions: (
+		filters?: DashboardFilters,
+		cursor?: string,
+	) => Effect.Effect<PaginatedSessions, HealthError>;
+	readonly getErrorProneSessions: (
+		filters?: DashboardFilters,
+		cursor?: string,
+	) => Effect.Effect<PaginatedSessions, HealthError>;
 }
 
 export class HealthService extends Context.Service<HealthService, HealthServiceShape>()(
@@ -139,7 +157,9 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 				const summaryRows = yield* Effect.try({
 					try: () =>
 						withFilters(
-							db.select({ id: sessionSummary.id, projectId: sessionSummary.projectId }).from(sessionSummary),
+							db
+								.select({ id: sessionSummary.id, projectId: sessionSummary.projectId })
+								.from(sessionSummary),
 							conditions,
 						).all(),
 					catch: (cause) => new HealthError({ cause, message: "Failed to get session IDs" }),
@@ -157,7 +177,11 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 
 				const eventRows = yield* Effect.try({
 					try: () =>
-						db.select().from(event).where(and(inArray(event.sessionId, sessionIds), eq(event.eventType, "message"))).all(),
+						db
+							.select()
+							.from(event)
+							.where(and(inArray(event.sessionId, sessionIds), eq(event.eventType, "message")))
+							.all(),
 					catch: (cause) => new HealthError({ cause, message: "Failed to get tool events" }),
 				});
 
@@ -165,7 +189,11 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 				const toolByProject = new Map<string, Map<string, { calls: number; errors: number }>>();
 				for (const row of eventRows) {
 					let parsed: Record<string, unknown>;
-					try { parsed = JSON.parse(row.data); } catch { continue; }
+					try {
+						parsed = JSON.parse(row.data);
+					} catch {
+						continue;
+					}
 					if (parsed.role !== "toolResult") continue;
 					const name = (parsed.toolName ?? parsed.name ?? "unknown") as string;
 
@@ -177,7 +205,10 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 					const projId = sessionProjectMap.get(row.sessionId) ?? "Unknown";
 					const proj = projectNameMap.get(projId) ?? "Unknown";
 					let projMap = toolByProject.get(proj);
-					if (!projMap) { projMap = new Map(); toolByProject.set(proj, projMap); }
+					if (!projMap) {
+						projMap = new Map();
+						toolByProject.set(proj, projMap);
+					}
 					const p = projMap.get(name) ?? { calls: 0, errors: 0 };
 					p.calls++;
 					if (parsed.isError) p.errors++;
@@ -185,7 +216,12 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 				}
 
 				const mostFailingTools = Array.from(globalToolCounts.entries())
-					.map(([name, data]) => ({ name, callCount: data.calls, errorCount: data.errors, errorRate: data.calls > 0 ? data.errors / data.calls : 0 }))
+					.map(([name, data]) => ({
+						name,
+						callCount: data.calls,
+						errorCount: data.errors,
+						errorRate: data.calls > 0 ? data.errors / data.calls : 0,
+					}))
 					.filter((t) => t.errorCount > 0)
 					.sort((a, b) => b.errorCount - a.errorCount)
 					.slice(0, 10);
@@ -194,18 +230,29 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 					.map(([project, tools]) => ({
 						project,
 						tools: Array.from(tools.entries())
-							.map(([name, data]) => ({ name, callCount: data.calls, errorCount: data.errors, errorRate: data.calls > 0 ? data.errors / data.calls : 0 }))
+							.map(([name, data]) => ({
+								name,
+								callCount: data.calls,
+								errorCount: data.errors,
+								errorRate: data.calls > 0 ? data.errors / data.calls : 0,
+							}))
 							.filter((t) => t.errorCount > 0)
 							.sort((a, b) => b.errorCount - a.errorCount)
 							.slice(0, 5),
 					}))
 					.filter((p) => p.tools.length > 0)
-					.sort((a, b) => b.tools.reduce((s, t) => s + t.errorCount, 0) - a.tools.reduce((s, t) => s + t.errorCount, 0));
+					.sort(
+						(a, b) =>
+							b.tools.reduce((s, t) => s + t.errorCount, 0) -
+							a.tools.reduce((s, t) => s + t.errorCount, 0),
+					);
 
 				return { mostFailingTools, failingToolsByProject };
 			});
 
-			const getErrorRateByProject = Effect.fn("getErrorRateByProject")(function* (filters?: DashboardFilters) {
+			const getErrorRateByProject = Effect.fn("getErrorRateByProject")(function* (
+				filters?: DashboardFilters,
+			) {
 				const conditions = applySummaryFilters(filters);
 				const projectRows = yield* Effect.try({
 					try: () => db.select({ id: project.id, name: project.name }).from(project).all(),
@@ -226,7 +273,8 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 								.groupBy(sessionSummary.projectId),
 							conditions,
 						).all(),
-					catch: (cause) => new HealthError({ cause, message: "Failed to get error rate by project" }),
+					catch: (cause) =>
+						new HealthError({ cause, message: "Failed to get error rate by project" }),
 				});
 				return rows
 					.map((r) => ({
@@ -305,36 +353,73 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 				};
 			}
 
-			const getExpensiveSessions = Effect.fn("getExpensiveSessions")(function* (filters?: DashboardFilters, cursor?: string) {
+			const getExpensiveSessions = Effect.fn("getExpensiveSessions")(function* (
+				filters?: DashboardFilters,
+				cursor?: string,
+			) {
 				const conditions = applySummaryFilters(filters);
 				const rows = yield* Effect.try({
-					try: () => paginatedQuery(db, sql`${sessionSummary.totalCost}`, conditions, cursor, sql`${sessionSummary.totalCost}`),
+					try: () =>
+						paginatedQuery(
+							db,
+							sql`${sessionSummary.totalCost}`,
+							conditions,
+							cursor,
+							sql`${sessionSummary.totalCost}`,
+						),
 					catch: (cause) => new HealthError({ cause, message: "Failed to get expensive sessions" }),
 				});
 				return toPaginated(rows);
 			});
 
-			const getHighTokenSessions = Effect.fn("getHighTokenSessions")(function* (filters?: DashboardFilters, cursor?: string) {
+			const getHighTokenSessions = Effect.fn("getHighTokenSessions")(function* (
+				filters?: DashboardFilters,
+				cursor?: string,
+			) {
 				const conditions = applySummaryFilters(filters);
 				const rows = yield* Effect.try({
-					try: () => paginatedQuery(db, sql`${sessionSummary.totalTokens}`, conditions, cursor, sql`${sessionSummary.totalTokens}`),
-					catch: (cause) => new HealthError({ cause, message: "Failed to get high token sessions" }),
+					try: () =>
+						paginatedQuery(
+							db,
+							sql`${sessionSummary.totalTokens}`,
+							conditions,
+							cursor,
+							sql`${sessionSummary.totalTokens}`,
+						),
+					catch: (cause) =>
+						new HealthError({ cause, message: "Failed to get high token sessions" }),
 				});
 				return toPaginated(rows);
 			});
 
-			const getErrorProneSessions = Effect.fn("getErrorProneSessions")(function* (filters?: DashboardFilters, cursor?: string) {
+			const getErrorProneSessions = Effect.fn("getErrorProneSessions")(function* (
+				filters?: DashboardFilters,
+				cursor?: string,
+			) {
 				const conditions = applySummaryFilters(filters);
 				const rows = yield* Effect.try({
-					try: () => paginatedQuery(db, sql`${sessionSummary.toolErrorCount}`, conditions, cursor, sql`${sessionSummary.toolErrorCount}`),
-					catch: (cause) => new HealthError({ cause, message: "Failed to get error prone sessions" }),
+					try: () =>
+						paginatedQuery(
+							db,
+							sql`${sessionSummary.toolErrorCount}`,
+							conditions,
+							cursor,
+							sql`${sessionSummary.toolErrorCount}`,
+						),
+					catch: (cause) =>
+						new HealthError({ cause, message: "Failed to get error prone sessions" }),
 				});
 				return toPaginated(rows);
 			});
 
 			return HealthService.of({
-				getSummary, getErrorTrend, getToolErrors, getErrorRateByProject,
-				getExpensiveSessions, getHighTokenSessions, getErrorProneSessions,
+				getSummary,
+				getErrorTrend,
+				getToolErrors,
+				getErrorRateByProject,
+				getExpensiveSessions,
+				getHighTokenSessions,
+				getErrorProneSessions,
 			});
 		}),
 	);

@@ -1,4 +1,4 @@
-import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { SwearingDashboard } from "~/features/dashboard/swearing";
@@ -10,15 +10,27 @@ export const Route = createFileRoute("/_dashboard/swearing")({
 });
 
 function SwearingRoute() {
-	const search = useSearch({ strict: false });
+	const search = Route.useSearch();
 
 	const filters: DashboardFilters | undefined = useMemo(() => {
 		const f: DashboardFilters = {};
 		let hasAny = false;
-		if (search.dateFrom != null) { f.dateFrom = search.dateFrom; hasAny = true; }
-		if (search.dateTo != null) { f.dateTo = search.dateTo; hasAny = true; }
-		if (search.projectIds?.length) { f.projectIds = search.projectIds; hasAny = true; }
-		if (search.model) { f.model = search.model; hasAny = true; }
+		if (search.dateFrom != null) {
+			f.dateFrom = search.dateFrom;
+			hasAny = true;
+		}
+		if (search.dateTo != null) {
+			f.dateTo = search.dateTo;
+			hasAny = true;
+		}
+		if (search.projectIds?.length) {
+			f.projectIds = search.projectIds;
+			hasAny = true;
+		}
+		if (search.model) {
+			f.model = search.model;
+			hasAny = true;
+		}
 		return hasAny ? f : undefined;
 	}, [search.dateFrom, search.dateTo, search.projectIds, search.model]);
 

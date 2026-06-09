@@ -19,7 +19,12 @@ export function applySummaryFilters(filters?: DashboardFilters): SQL[] {
 		conditions.push(sql`${sessionSummary.createdAt} < ${filters.dateTo}`);
 	}
 	if (filters.projectIds?.length) {
-		conditions.push(sql`${sessionSummary.projectId} IN (${sql.join(filters.projectIds.map((id) => sql`${id}`), sql`,`)})`);
+		conditions.push(
+			sql`${sessionSummary.projectId} IN (${sql.join(
+				filters.projectIds.map((id) => sql`${id}`),
+				sql`,`,
+			)})`,
+		);
 	}
 	if (filters.model) {
 		conditions.push(sql`${sessionSummary.models} LIKE '%"' || ${filters.model} || '"%'`);

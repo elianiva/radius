@@ -1,7 +1,7 @@
 import { Config, Effect, Match, Option, Path } from "effect";
 import { homedir, platform } from "node:os";
 
-export const resolveDbDir = Effect.gen(function*() {
+export const resolveDbDir = Effect.gen(function* () {
 	const path = yield* Path.Path;
 	const explicit = yield* Config.option(Config.string("RADIUS_DB_DIR"));
 	if (Option.isSome(explicit)) return explicit.value;
@@ -12,7 +12,7 @@ export const resolveDbDir = Effect.gen(function*() {
 			Effect.succeed(path.join(home, "Library", "Application Support", "radius")),
 		),
 		Match.when("win32", () =>
-			Effect.gen(function*() {
+			Effect.gen(function* () {
 				const appData = yield* Config.option(Config.string("APPDATA"));
 				return Match.value(appData).pipe(
 					Match.tag("Some", (s) => path.join(s.value, "radius")),
@@ -22,7 +22,7 @@ export const resolveDbDir = Effect.gen(function*() {
 			}),
 		),
 		Match.orElse(() =>
-			Effect.gen(function*() {
+			Effect.gen(function* () {
 				const xdgData = yield* Config.option(Config.string("XDG_DATA_HOME"));
 				return Match.value(xdgData).pipe(
 					Match.tag("Some", (s) =>

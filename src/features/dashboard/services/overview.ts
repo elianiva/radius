@@ -76,12 +76,24 @@ export interface DashboardMetrics {
 
 interface OverviewServiceShape {
 	readonly getCards: (filters?: DashboardFilters) => Effect.Effect<OverviewCards, OverviewError>;
-	readonly getCostOverTime: (filters?: DashboardFilters) => Effect.Effect<CostOverTimeEntry[], OverviewError>;
-	readonly getModelUsage: (filters?: DashboardFilters) => Effect.Effect<ModelUsageEntry[], OverviewError>;
-	readonly getTopProjects: (filters?: DashboardFilters) => Effect.Effect<TopProjectEntry[], OverviewError>;
-	readonly getThinkingLevels: (filters?: DashboardFilters) => Effect.Effect<ThinkingLevelEntry[], OverviewError>;
-	readonly getStopReasons: (filters?: DashboardFilters) => Effect.Effect<StopReasonEntry[], OverviewError>;
-	readonly getDashboardMetrics: (filters?: DashboardFilters) => Effect.Effect<DashboardMetrics, OverviewError>;
+	readonly getCostOverTime: (
+		filters?: DashboardFilters,
+	) => Effect.Effect<CostOverTimeEntry[], OverviewError>;
+	readonly getModelUsage: (
+		filters?: DashboardFilters,
+	) => Effect.Effect<ModelUsageEntry[], OverviewError>;
+	readonly getTopProjects: (
+		filters?: DashboardFilters,
+	) => Effect.Effect<TopProjectEntry[], OverviewError>;
+	readonly getThinkingLevels: (
+		filters?: DashboardFilters,
+	) => Effect.Effect<ThinkingLevelEntry[], OverviewError>;
+	readonly getStopReasons: (
+		filters?: DashboardFilters,
+	) => Effect.Effect<StopReasonEntry[], OverviewError>;
+	readonly getDashboardMetrics: (
+		filters?: DashboardFilters,
+	) => Effect.Effect<DashboardMetrics, OverviewError>;
 }
 
 export class OverviewService extends Context.Service<OverviewService, OverviewServiceShape>()(
@@ -127,7 +139,9 @@ export class OverviewService extends Context.Service<OverviewService, OverviewSe
 					const models = JSON.parse(r.models) as string[];
 					for (const m of models) globalModelCounts.set(m, (globalModelCounts.get(m) ?? 0) + 1);
 				}
-				const mostUsedModelEntry = Array.from(globalModelCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+				const mostUsedModelEntry = Array.from(globalModelCounts.entries()).sort(
+					(a, b) => b[1] - a[1],
+				)[0];
 
 				return {
 					totalSessions: row.totalSessions,
@@ -168,7 +182,9 @@ export class OverviewService extends Context.Service<OverviewService, OverviewSe
 				const rows = yield* Effect.try({
 					try: () =>
 						withFilters(
-							db.select({ models: sessionSummary.models, totalCost: sessionSummary.totalCost }).from(sessionSummary),
+							db
+								.select({ models: sessionSummary.models, totalCost: sessionSummary.totalCost })
+								.from(sessionSummary),
 							conditions,
 						).all(),
 					catch: (cause) => new OverviewError({ cause, message: "Failed to get model usage" }),
@@ -222,21 +238,33 @@ export class OverviewService extends Context.Service<OverviewService, OverviewSe
 				}));
 			});
 
-			const getThinkingLevels = Effect.fn("getThinkingLevels")(function* (filters?: DashboardFilters) {
+			const getThinkingLevels = Effect.fn("getThinkingLevels")(function* (
+				filters?: DashboardFilters,
+			) {
 				const thinkingRows = yield* Effect.try({
 					try: () => {
-						let q = db.select().from(sessionEvent).where(eq(sessionEvent.eventType, "thinking_change")) as any;
-						if (filters?.dateFrom != null) q = q.where(sql`${sessionEvent.createdAt} >= ${filters.dateFrom}`);
-						if (filters?.dateTo != null) q = q.where(sql`${sessionEvent.createdAt} < ${filters.dateTo}`);
+						let q = db
+							.select()
+							.from(sessionEvent)
+							.where(eq(sessionEvent.eventType, "thinking_change")) as any;
+						if (filters?.dateFrom != null)
+							q = q.where(sql`${sessionEvent.createdAt} >= ${filters.dateFrom}`);
+						if (filters?.dateTo != null)
+							q = q.where(sql`${sessionEvent.createdAt} < ${filters.dateTo}`);
 						return q.all();
 					},
-					catch: (cause) => new OverviewError({ cause, message: "Failed to get thinking level events" }),
+					catch: (cause) =>
+						new OverviewError({ cause, message: "Failed to get thinking level events" }),
 				});
 
 				const thinkingLevelCounts = new Map<string, number>();
 				for (const row of thinkingRows) {
 					let parsed: Record<string, unknown>;
-					try { parsed = JSON.parse(row.data); } catch { parsed = {}; }
+					try {
+						parsed = JSON.parse(row.data);
+					} catch {
+						parsed = {};
+					}
 					const level = (parsed.thinkingLevel ?? parsed.level ?? "off") as string;
 					thinkingLevelCounts.set(level, (thinkingLevelCounts.get(level) ?? 0) + 1);
 				}
@@ -267,9 +295,17 @@ export class OverviewService extends Context.Service<OverviewService, OverviewSe
 					.sort((a, b) => b.count - a.count);
 			});
 
-			const getDashboardMetrics = Effect.fn("getDashboardMetrics")(function* (filters?: DashboardFilters) {
+			const getDashboardMetrics = Effect.fn("getDashboardMetrics")(function* (
+				filters?: DashboardFilters,
+			) {
 				const [cards, costOverTime, modelUsage, thinkingLevels, stopReasons] = yield* Effect.all(
-					[getCards(filters), getCostOverTime(filters), getModelUsage(filters), getThinkingLevels(filters), getStopReasons(filters)],
+					[
+						getCards(filters),
+						getCostOverTime(filters),
+						getModelUsage(filters),
+						getThinkingLevels(filters),
+						getStopReasons(filters),
+					],
 					{ concurrency: 3 },
 				);
 
@@ -298,22 +334,29 @@ export class OverviewService extends Context.Service<OverviewService, OverviewSe
 									.groupBy(sessionSummary.projectId),
 								conditions,
 							).all(),
-						catch: (cause) => new OverviewError({ cause, message: "Failed to get project metrics" }),
+						catch: (cause) =>
+							new OverviewError({ cause, message: "Failed to get project metrics" }),
 					});
 
 					const modelRows = yield* Effect.try({
 						try: () =>
 							withFilters(
-								db.select({ projectId: sessionSummary.projectId, models: sessionSummary.models }).from(sessionSummary),
+								db
+									.select({ projectId: sessionSummary.projectId, models: sessionSummary.models })
+									.from(sessionSummary),
 								conditions,
 							).all(),
-						catch: (cause) => new OverviewError({ cause, message: "Failed to get project model data" }),
+						catch: (cause) =>
+							new OverviewError({ cause, message: "Failed to get project model data" }),
 					});
 
 					const projectModelCounts = new Map<string, Map<string, number>>();
 					for (const r of modelRows) {
 						let modelMap = projectModelCounts.get(r.projectId);
-						if (!modelMap) { modelMap = new Map(); projectModelCounts.set(r.projectId, modelMap); }
+						if (!modelMap) {
+							modelMap = new Map();
+							projectModelCounts.set(r.projectId, modelMap);
+						}
 						const models = JSON.parse(r.models) as string[];
 						for (const m of models) modelMap.set(m, (modelMap.get(m) ?? 0) + 1);
 					}
@@ -341,11 +384,25 @@ export class OverviewService extends Context.Service<OverviewService, OverviewSe
 					.slice(0, 5)
 					.map((p) => ({ name: p.name, sessionCount: p.sessionCount, cost: p.totalCost }));
 
-				return { ...cards, costOverTime, modelUsage, thinkingLevels, stopReasons, projects, topProjects };
+				return {
+					...cards,
+					costOverTime,
+					modelUsage,
+					thinkingLevels,
+					stopReasons,
+					projects,
+					topProjects,
+				};
 			});
 
 			return OverviewService.of({
-				getCards, getCostOverTime, getModelUsage, getTopProjects, getThinkingLevels, getStopReasons, getDashboardMetrics,
+				getCards,
+				getCostOverTime,
+				getModelUsage,
+				getTopProjects,
+				getThinkingLevels,
+				getStopReasons,
+				getDashboardMetrics,
 			});
 		}),
 	);

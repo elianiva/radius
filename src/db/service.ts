@@ -11,7 +11,7 @@ export type DatabaseShape = NodeSQLiteDatabase<typeof schema> & { $client: Datab
 export class Database extends Context.Service<Database, DatabaseShape>()("radius/SessionDatabase") {
 	static readonly layer = Layer.effect(
 		Database,
-		Effect.gen(function*() {
+		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
 			const path = yield* Path.Path;
 			const dbDir = yield* resolveDbDir;

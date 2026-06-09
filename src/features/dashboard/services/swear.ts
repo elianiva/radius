@@ -41,7 +41,12 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
 					conditions.push(sql`${swearEntry.createdAt} < ${filters.dateTo}`);
 				}
 				if (filters?.projectIds?.length) {
-					conditions.push(sql`${swearEntry.projectName} IN (${sql.join(filters.projectIds.map((id) => sql`${id}`), sql`,`)})`);
+					conditions.push(
+						sql`${swearEntry.projectName} IN (${sql.join(
+							filters.projectIds.map((id) => sql`${id}`),
+							sql`,`,
+						)})`,
+					);
 				}
 
 				const countRows = yield* Effect.try({
@@ -52,7 +57,8 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
 								uniqueSessions: sql<number>`count(distinct ${swearEntry.sessionId})`,
 								uniqueProjects: sql<number>`count(distinct ${swearEntry.projectName})`,
 							})
-							.from(swearEntry);
+							.from(swearEntry)
+							.$dynamic();
 						for (const c of conditions) q.where(c);
 						return q.all();
 					},
@@ -69,7 +75,8 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
 							})
 							.from(swearEntry)
 							.groupBy(swearEntry.word)
-							.orderBy(sql`count(*) desc`);
+							.orderBy(sql`count(*) desc`)
+							.$dynamic();
 						for (const c of conditions) q.where(c);
 						return q.all();
 					},
@@ -88,7 +95,8 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
 							.from(swearEntry)
 							.groupBy(swearEntry.word)
 							.orderBy(sql`count(*) desc`)
-							.limit(10);
+							.limit(10)
+							.$dynamic();
 						for (const c of conditions) q.where(c);
 						return q.all();
 					},
@@ -105,7 +113,8 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
 							})
 							.from(swearEntry)
 							.groupBy(sql`date(${swearEntry.createdAt} / 1000, 'unixepoch')`)
-							.orderBy(sql`date(${swearEntry.createdAt} / 1000, 'unixepoch')`);
+							.orderBy(sql`date(${swearEntry.createdAt} / 1000, 'unixepoch')`)
+							.$dynamic();
 						for (const c of conditions) q.where(c);
 						return q.all();
 					},
@@ -123,7 +132,8 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
 							})
 							.from(swearEntry)
 							.groupBy(swearEntry.projectName)
-							.orderBy(sql`count(*) desc`);
+							.orderBy(sql`count(*) desc`)
+							.$dynamic();
 						for (const c of conditions) q.where(c);
 						return q.all();
 					},
@@ -145,7 +155,8 @@ export class SwearService extends Context.Service<SwearService, SwearServiceShap
 							.from(swearEntry)
 							.groupBy(swearEntry.sessionId)
 							.orderBy(sql`count(*) desc`)
-							.limit(10);
+							.limit(10)
+							.$dynamic();
 						for (const c of conditions) q.where(c);
 						return q.all();
 					},

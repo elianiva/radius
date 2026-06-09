@@ -7,7 +7,14 @@ import type { DashboardFilters } from "~/features/dashboard/services/filters";
 
 export const getSessionsList = createServerFn({ method: "GET" })
 	.inputValidator((v: unknown) => {
-		if (!v || typeof v !== "object") return { search: undefined, sortBy: undefined, sortDir: undefined, cursor: undefined, filters: undefined };
+		if (!v || typeof v !== "object")
+			return {
+				search: undefined,
+				sortBy: undefined,
+				sortDir: undefined,
+				cursor: undefined,
+				filters: undefined,
+			};
 		const raw = (v as Record<string, unknown>).data as Record<string, unknown> | undefined;
 		return {
 			search: raw?.search as string | undefined,

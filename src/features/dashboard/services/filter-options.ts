@@ -34,10 +34,8 @@ export class FilterOptionsService extends Context.Service<
 
 			const getModelNames = Effect.fn("getModelNames")(function* () {
 				const rows = yield* Effect.try({
-					try: () =>
-						db.select({ models: sessionSummary.models }).from(sessionSummary).all(),
-					catch: (cause) =>
-						new FilterOptionsError({ cause, message: "Failed to get model names" }),
+					try: () => db.select({ models: sessionSummary.models }).from(sessionSummary).all(),
+					catch: (cause) => new FilterOptionsError({ cause, message: "Failed to get model names" }),
 				});
 
 				const modelSet = new Set<string>();
