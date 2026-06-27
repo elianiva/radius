@@ -1,3 +1,4 @@
+import { queryOptions } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 
@@ -12,3 +13,14 @@ export const getProjectDetail = createServerFn({ method: "GET" })
 			{ signal: getRequest().signal },
 		),
 	);
+
+export const ProjectsRpc = {
+	projects: () => ["dashboard", "projects"] as const,
+	detail: (projectId: string | null) =>
+		queryOptions({
+			queryKey: [...ProjectsRpc.projects(), "detail", projectId] as const,
+			queryFn: () => getProjectDetail({ data: { projectId: projectId! } }),
+			staleTime: 60_000,
+			enabled: !!projectId,
+		}),
+};

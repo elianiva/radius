@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { getWrappedData } from "~/server/rpc/wrapped";
+import { WrappedRpc } from "~/server/rpc/wrapped";
 import { Wrapped } from "~/features/wrapped/wrapped";
 
 export const Route = createFileRoute("/_dashboard/wrapped")({
@@ -11,11 +11,7 @@ export const Route = createFileRoute("/_dashboard/wrapped")({
 function WrappedRoute() {
 	const [year, setYear] = useState<number | undefined>(undefined);
 
-	const { data } = useQuery({
-		queryKey: ["wrapped-data", year],
-		queryFn: () => getWrappedData({ data: { year } }),
-		staleTime: 60_000,
-	});
+	const { data } = useQuery(WrappedRpc.data(year));
 
 	if (!data) {
 		return (

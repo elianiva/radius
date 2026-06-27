@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
 import { Skeleton } from "~/components/ui/skeleton";
-import { getSessionEvents } from "~/server/rpc/sessions";
+import { SessionsRpc } from "~/server/rpc/dashboard/sessions";
 import { ArrowLeft } from "lucide-react";
 import type { TimelineEvent } from "~/features/sessions/services/session";
 
@@ -91,10 +91,7 @@ function EventRow({ event }: { event: TimelineEvent }) {
 }
 
 function EventsList({ sessionId }: { sessionId: string }) {
-	const { data: events } = useSuspenseQuery({
-		queryKey: ["session-events", sessionId],
-		queryFn: () => getSessionEvents({ data: { sessionId } }),
-	});
+	const { data: events } = useSuspenseQuery(SessionsRpc.events(sessionId));
 
 	if (!events || events.length === 0) {
 		return (

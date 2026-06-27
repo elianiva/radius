@@ -279,12 +279,7 @@ function CostOverTimeChart({ data }: { data: CostOverTime[] }) {
 				<ChartContainer config={costChartConfig} className="h-90 w-full">
 					<AreaChart data={chartData}>
 						<CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-						<XAxis
-							dataKey="date"
-							tickLine={false}
-							axisLine={false}
-							tickFormatter={dateFormatter}
-						/>
+						<XAxis dataKey="date" tickLine={false} axisLine={false} tickFormatter={dateFormatter} />
 						<YAxis tickLine={false} axisLine={false} tickFormatter={(v) => `$${v.toFixed(2)}`} />
 						<ChartTooltip
 							content={

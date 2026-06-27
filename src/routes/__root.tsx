@@ -1,11 +1,24 @@
-import { HeadContent, Link, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import {
+	ClientOnly,
+	HeadContent,
+	Link,
+	Outlet,
+	Scripts,
+	createRootRouteWithContext,
+} from "@tanstack/react-router";
+import type { QueryClient } from "@tanstack/react-query";
 
 import { TooltipProvider } from "~/components/ui/tooltip";
+import { DevTools } from "~/components/devtools";
 import appCss from "../styles.css?url";
 
-export const Route = createRootRoute({
+interface RouterContext {
+	queryClient: QueryClient;
+}
+
+const isDev = import.meta.env.DEV;
+
+export const Route = createRootRouteWithContext<RouterContext>()({
 	head: () => ({
 		meta: [
 			{ charSet: "utf-8" },
@@ -27,19 +40,20 @@ export const Route = createRootRoute({
 });
 
 function RootLayout() {
-	const [queryClient] = useState(() => new QueryClient());
-
 	return (
 		<html lang="en">
 			<head>
 				<HeadContent />
 			</head>
 			<body>
-				<QueryClientProvider client={queryClient}>
-					<TooltipProvider>
-						<Outlet />
-					</TooltipProvider>
-				</QueryClientProvider>
+				<TooltipProvider>
+					<Outlet />
+				</TooltipProvider>
+				{isDev && (
+					<ClientOnly>
+						<DevTools />
+					</ClientOnly>
+				)}
 				<Scripts />
 			</body>
 		</html>

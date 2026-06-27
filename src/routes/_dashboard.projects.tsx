@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { getDashboardMetrics } from "~/server/rpc/dashboard/overview";
-import { getProjectDetail } from "~/server/rpc/dashboard/projects";
+import { OverviewRpc } from "~/server/rpc/dashboard/overview";
+import { ProjectsRpc } from "~/server/rpc/dashboard/projects";
 import { Projects } from "~/features/dashboard/projects";
 import { ProjectDetailView } from "~/features/dashboard/project-detail";
 import { ProjectsLoading } from "~/features/dashboard/loading";
@@ -18,20 +18,11 @@ export const Route = createFileRoute("/_dashboard/projects")({
 function ProjectsRoute() {
 	const filters = useDashboardFilters(Route.useSearch());
 
-	const { data: metrics } = useSuspenseQuery({
-		queryKey: ["dashboard-metrics", filters],
-		queryFn: () => getDashboardMetrics({ data: { filters } }),
-		staleTime: 120_000,
-	});
+	const { data: metrics } = useQuery(OverviewRpc.dashboardMetrics(filters));
 
 	const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
-	const { data: projectDetail } = useQuery({
-		queryKey: ["project-detail", selectedProjectId],
-		queryFn: () => getProjectDetail({ data: { projectId: selectedProjectId! } }),
-		staleTime: 60_000,
-		enabled: !!selectedProjectId,
-	});
+	const { data: projectDetail } = useQuery(ProjectsRpc.detail(selectedProjectId));
 
 	if (selectedProjectId && projectDetail) {
 		return (
@@ -50,7 +41,7 @@ function ProjectsRoute() {
 
 	return (
 		<Suspense fallback={<ProjectsLoading />}>
-			<Projects projects={metrics.projects} onSelectProject={setSelectedProjectId} />
+			<Projects projects={metrics!.projects} onSelectProject={setSelectedProjectId} />
 		</Suspense>
 	);
 }

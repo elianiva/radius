@@ -1,9 +1,7 @@
 import { useMemo } from "react";
 import type { DashboardFilters } from "~/features/dashboard/services/filters";
 
-export function useDashboardFilters(
-	search: Record<string, unknown>,
-): DashboardFilters | undefined {
+export function useDashboardFilters(search: Record<string, unknown>): DashboardFilters | undefined {
 	return useMemo(() => {
 		const f: DashboardFilters = {};
 		let hasAny = false;

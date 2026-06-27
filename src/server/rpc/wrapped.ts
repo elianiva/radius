@@ -1,3 +1,4 @@
+import { queryOptions } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 
@@ -12,3 +13,13 @@ export const getWrappedData = createServerFn({ method: "GET" })
 			{ signal: getRequest().signal },
 		),
 	);
+
+export const WrappedRpc = {
+	wrapped: () => ["dashboard", "wrapped"] as const,
+	data: (year?: number) =>
+		queryOptions({
+			queryKey: [...WrappedRpc.wrapped(), "data", year] as const,
+			queryFn: () => getWrappedData({ data: { year } }),
+			staleTime: 60_000,
+		}),
+};

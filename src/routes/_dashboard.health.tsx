@@ -4,12 +4,7 @@ import { Suspense } from "react";
 import { HealthDashboard } from "~/features/dashboard/health";
 import { OverviewLoading } from "~/features/dashboard/loading";
 import { useDashboardFilters } from "~/hooks/use-dashboard-filters";
-import {
-	getHealthSummary,
-	getErrorTrend,
-	getToolErrors,
-	getErrorRateByProject,
-} from "~/server/rpc/dashboard/health";
+import { HealthRpc } from "~/server/rpc/dashboard/health";
 
 export const Route = createFileRoute("/_dashboard/health")({
 	component: HealthRoute,
@@ -18,29 +13,10 @@ export const Route = createFileRoute("/_dashboard/health")({
 function HealthRoute() {
 	const filters = useDashboardFilters(Route.useSearch());
 
-	const summary = useQuery({
-		queryKey: ["health-summary", filters],
-		queryFn: () => getHealthSummary({ data: { filters } }),
-		staleTime: 30_000,
-	});
-
-	const errorTrend = useQuery({
-		queryKey: ["error-trend", filters],
-		queryFn: () => getErrorTrend({ data: { filters } }),
-		staleTime: 60_000,
-	});
-
-	const errorRateByProject = useQuery({
-		queryKey: ["error-rate-by-project", filters],
-		queryFn: () => getErrorRateByProject({ data: { filters } }),
-		staleTime: 60_000,
-	});
-
-	const toolErrors = useQuery({
-		queryKey: ["tool-errors", filters],
-		queryFn: () => getToolErrors({ data: { filters } }),
-		staleTime: 120_000,
-	});
+	const summary = useQuery(HealthRpc.summary(filters));
+	const errorTrend = useQuery(HealthRpc.errorTrend(filters));
+	const errorRateByProject = useQuery(HealthRpc.errorRateByProject(filters));
+	const toolErrors = useQuery(HealthRpc.toolErrors(filters));
 
 	return (
 		<Suspense fallback={<OverviewLoading />}>

@@ -16,12 +16,9 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { DataTable, type Column } from "~/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
-import {
-	getExpensiveSessions,
-	getHighTokenSessions,
-	getErrorProneSessions,
-} from "~/server/rpc/dashboard/health";
+import { HealthRpc } from "~/server/rpc/dashboard/health";
 import { StatCardGridSkeleton, ChartCardSkeleton, BarListSkeleton } from "./loading";
+import { useCursorPagination } from "~/hooks/use-cursor-pagination";
 
 const FilterContext = createContext<DashboardFilters | undefined>(undefined);
 
@@ -415,28 +412,20 @@ interface SessionTableCardProps {
 
 function SessionTableCard({ tab }: SessionTableCardProps) {
 	const filters = useContext(FilterContext);
-	const [cursorStack, setCursorStack] = useState<(string | undefined)[]>([undefined]);
-	const [cursorIndex, setCursorIndex] = useState(0);
-	const currentCursor = cursorStack[cursorIndex];
+	const pagination = useCursorPagination();
 
-	const queryKey =
+	const queryOpts =
 		tab === "expensive"
-			? "expensive-sessions"
+			? HealthRpc.expensiveSessions(filters, pagination.cursor)
 			: tab === "tokens"
-				? "high-token-sessions"
-				: "error-prone-sessions";
+				? HealthRpc.highTokenSessions(filters, pagination.cursor)
+				: HealthRpc.errorProneSessions(filters, pagination.cursor);
 
-	const queryFn = {
-		expensive: getExpensiveSessions,
-		tokens: getHighTokenSessions,
-		errors: getErrorProneSessions,
-	}[tab];
-
-	const { data, isFetching } = useQuery<PaginatedSessions>({
-		queryKey: [queryKey, filters, currentCursor],
-		queryFn: () => queryFn({ data: { cursor: currentCursor, filters } }),
-		staleTime: 60_000,
-	});
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const { data, isFetching } = useQuery(queryOpts as any) as {
+		data: PaginatedSessions | undefined;
+		isFetching: boolean;
+	};
 
 	const columns = {
 		expensive: expensiveColumns,
@@ -451,16 +440,11 @@ function SessionTableCard({ tab }: SessionTableCardProps) {
 
 	const goNext = () => {
 		if (!nextCursor) return;
-		const newIndex = cursorIndex + 1;
-		const newStack = cursorStack.slice(0, newIndex);
-		newStack.push(nextCursor);
-		setCursorStack(newStack);
-		setCursorIndex(newIndex);
+		pagination.goNext(nextCursor);
 	};
 
 	const goPrev = () => {
-		if (cursorIndex <= 0) return;
-		setCursorIndex(cursorIndex - 1);
+		pagination.goPrev();
 	};
 
 	return (

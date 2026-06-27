@@ -46,9 +46,7 @@ interface HealthServiceShape {
 	readonly getErrorTrend: (
 		filters?: DashboardFilters,
 	) => Effect.Effect<ErrorTrendEntry[], HealthError>;
-	readonly getToolErrors: (
-		filters?: DashboardFilters,
-	) => Effect.Effect<
+	readonly getToolErrors: (filters?: DashboardFilters) => Effect.Effect<
 		{
 			mostFailingTools: ToolMetrics[];
 			failingToolsByProject: { project: string; tools: ToolMetrics[] }[];

@@ -1,9 +1,11 @@
+import { queryOptions } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 
 import { AppRuntime } from "../../app-runtime";
 import { HealthService } from "~/features/dashboard/services/health";
 import { extractFilters, parseFilters } from "~/features/dashboard/services/filters";
+import type { DashboardFilters } from "~/features/dashboard/services/filters";
 
 export const getHealthSummary = createServerFn({ method: "GET" })
 	.inputValidator(extractFilters)
@@ -79,3 +81,49 @@ export const getErrorProneSessions = createServerFn({ method: "GET" })
 			{ signal: getRequest().signal },
 		),
 	);
+
+export const HealthRpc = {
+	health: () => ["dashboard", "health"] as const,
+	summary: (filters?: DashboardFilters) =>
+		queryOptions({
+			queryKey: [...HealthRpc.health(), "summary", filters] as const,
+			queryFn: () => getHealthSummary({ data: { filters } }),
+			staleTime: 30_000,
+		}),
+	errorTrend: (filters?: DashboardFilters) =>
+		queryOptions({
+			queryKey: [...HealthRpc.health(), "error-trend", filters] as const,
+			queryFn: () => getErrorTrend({ data: { filters } }),
+			staleTime: 60_000,
+		}),
+	errorRateByProject: (filters?: DashboardFilters) =>
+		queryOptions({
+			queryKey: [...HealthRpc.health(), "error-rate-by-project", filters] as const,
+			queryFn: () => getErrorRateByProject({ data: { filters } }),
+			staleTime: 60_000,
+		}),
+	toolErrors: (filters?: DashboardFilters) =>
+		queryOptions({
+			queryKey: [...HealthRpc.health(), "tool-errors", filters] as const,
+			queryFn: () => getToolErrors({ data: { filters } }),
+			staleTime: 120_000,
+		}),
+	expensiveSessions: (filters?: DashboardFilters, cursor?: string) =>
+		queryOptions({
+			queryKey: [...HealthRpc.health(), "expensive-sessions", filters, cursor] as const,
+			queryFn: () => getExpensiveSessions({ data: { filters, cursor } }),
+			staleTime: 60_000,
+		}),
+	highTokenSessions: (filters?: DashboardFilters, cursor?: string) =>
+		queryOptions({
+			queryKey: [...HealthRpc.health(), "high-token-sessions", filters, cursor] as const,
+			queryFn: () => getHighTokenSessions({ data: { filters, cursor } }),
+			staleTime: 60_000,
+		}),
+	errorProneSessions: (filters?: DashboardFilters, cursor?: string) =>
+		queryOptions({
+			queryKey: [...HealthRpc.health(), "error-prone-sessions", filters, cursor] as const,
+			queryFn: () => getErrorProneSessions({ data: { filters, cursor } }),
+			staleTime: 60_000,
+		}),
+};

@@ -1,5 +1,5 @@
 import { Outlet, Link, createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Suspense, useState, useCallback, useMemo } from "react";
 import { Button } from "~/components/ui/button";
 import {
@@ -21,13 +21,14 @@ import {
 	Download,
 } from "lucide-react";
 import { importPiSessions, importOpencodeSessions } from "~/server/rpc/sessions";
-import { getOverviewCards } from "~/server/rpc/dashboard/overview";
-import { getProjectNames, getModelNames } from "~/server/rpc/dashboard/filters";
+import { OverviewRpc } from "~/server/rpc/dashboard/overview";
+import { FilterOptionsRpc } from "~/server/rpc/dashboard/filters";
 import type { IngestProgress } from "~/features/sessions/progress";
 import type { DashboardFilters } from "~/features/dashboard/services/filters";
 import { OverviewLoading } from "~/features/dashboard/loading";
 import { AppNav } from "~/components/app-nav";
 import { FilterBar } from "~/components/filter-bar";
+import { QueryErrorBoundary } from "~/components/query-error-boundary";
 
 function parseSearch(raw: Record<string, unknown>): DashboardFilters {
 	const result: DashboardFilters = {};
@@ -179,12 +180,9 @@ function DashboardLayout() {
 	const search = Route.useSearch();
 	const navigate = Route.useNavigate();
 	const [ingestProgress, setIngestProgress] = useState<IngestProgress | null>(null);
+	const [isImporting, setIsImporting] = useState(false);
 
-	const { data: summary } = useSuspenseQuery({
-		queryKey: ["overview-cards"],
-		queryFn: () => getOverviewCards(),
-		staleTime: 30_000,
-	});
+	const { data: summary } = useQuery(OverviewRpc.overviewCards());
 
 	const filters: DashboardFilters = useMemo(
 		() => ({
@@ -196,17 +194,8 @@ function DashboardLayout() {
 		[search.dateFrom, search.dateTo, search.projectIds, search.model],
 	);
 
-	const { data: projectNames } = useQuery({
-		queryKey: ["project-names"],
-		queryFn: () => getProjectNames(),
-		staleTime: 120_000,
-	});
-
-	const { data: modelNames } = useQuery({
-		queryKey: ["model-names"],
-		queryFn: () => getModelNames(),
-		staleTime: 120_000,
-	});
+	const { data: projectNames } = useQuery(FilterOptionsRpc.projectNames());
+	const { data: modelNames } = useQuery(FilterOptionsRpc.modelNames());
 
 	const handleFiltersChange = useCallback(
 		(next: DashboardFilters) => {
@@ -215,8 +204,9 @@ function DashboardLayout() {
 		[navigate],
 	);
 
-	const importMutation = useMutation({
-		mutationFn: async ({ doPi, doOpencode }: { doPi: boolean; doOpencode: boolean }) => {
+	const handleImport = useCallback(
+		async (doPi: boolean, doOpencode: boolean) => {
+			setIsImporting(true);
 			if (doPi) {
 				const stream = await importPiSessions();
 				for await (const progress of stream) {
@@ -230,29 +220,12 @@ function DashboardLayout() {
 					setIngestProgress(progress);
 				}
 			}
-		},
-		onSuccess: () => {
-			setIngestProgress(null);
-			void queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
-			void queryClient.invalidateQueries({ queryKey: ["overview-cards"] });
-			void queryClient.invalidateQueries({ queryKey: ["cost-over-time"] });
-			void queryClient.invalidateQueries({ queryKey: ["model-usage"] });
-			void queryClient.invalidateQueries({ queryKey: ["top-projects"] });
-			void queryClient.invalidateQueries({ queryKey: ["thinking-levels"] });
-			void queryClient.invalidateQueries({ queryKey: ["stop-reasons"] });
-			void queryClient.invalidateQueries({ queryKey: ["health-summary"] });
-			void queryClient.invalidateQueries({ queryKey: ["error-trend"] });
-			void queryClient.invalidateQueries({ queryKey: ["error-rate-by-project"] });
-			void queryClient.invalidateQueries({ queryKey: ["tool-errors"] });
-			void queryClient.invalidateQueries({ queryKey: ["wrapped-data"] });
-		},
-	});
 
-	const handleImport = useCallback(
-		(doPi: boolean, doOpencode: boolean) => {
-			importMutation.mutate({ doPi, doOpencode });
+			setIngestProgress(null);
+			setIsImporting(false);
+			void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
 		},
-		[importMutation],
+		[queryClient],
 	);
 
 	const links = [
@@ -271,17 +244,17 @@ function DashboardLayout() {
 					Radius
 				</Link>
 
-				<ImportDialog onImport={handleImport} disabled={importMutation.isPending} />
+				<ImportDialog onImport={handleImport} disabled={isImporting} />
 			</div>
 
-			{importMutation.isPending && ingestProgress ? (
+			{isImporting && ingestProgress ? (
 				<div className="flex items-center justify-center rounded border py-16">
 					<Digest progress={ingestProgress} />
 				</div>
-			) : summary.totalSessions === 0 ? (
+			) : summary?.totalSessions === 0 ? (
 				<div className="flex flex-col items-center justify-center gap-4 rounded border py-16">
 					<p className="text-muted-foreground">No sessions yet</p>
-					<ImportDialog onImport={handleImport} disabled={importMutation.isPending} />
+					<ImportDialog onImport={handleImport} disabled={isImporting} />
 				</div>
 			) : (
 				<>
@@ -292,9 +265,11 @@ function DashboardLayout() {
 						models={modelNames ?? []}
 					/>
 					<AppNav items={links} />
-					<Suspense fallback={<OverviewLoading />}>
-						<Outlet />
-					</Suspense>
+					<QueryErrorBoundary>
+						<Suspense fallback={<OverviewLoading />}>
+							<Outlet />
+						</Suspense>
+					</QueryErrorBoundary>
 				</>
 			)}
 		</main>

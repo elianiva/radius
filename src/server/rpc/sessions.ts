@@ -1,3 +1,4 @@
+import { mutationOptions } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { Stream } from "effect";
@@ -77,6 +78,34 @@ export const getSessionEvents = createServerFn({ method: "GET" })
 			{ signal: getRequest().signal },
 		),
 	);
+
+export const IngestRpc = {
+	ingest: () => ["ingest"] as const,
+	importPi: () =>
+		mutationOptions({
+			mutationKey: [...IngestRpc.ingest(), "pi"] as const,
+			mutationFn: async () => {
+				const stream = await importPiSessions();
+				const events: IngestProgress[] = [];
+				for await (const progress of stream) {
+					events.push(progress);
+				}
+				return events;
+			},
+		}),
+	importOpencode: () =>
+		mutationOptions({
+			mutationKey: [...IngestRpc.ingest(), "opencode"] as const,
+			mutationFn: async () => {
+				const stream = await importOpencodeSessions();
+				const events: IngestProgress[] = [];
+				for await (const progress of stream) {
+					events.push(progress);
+				}
+				return events;
+			},
+		}),
+};
 
 export const getSessionsList = createServerFn({ method: "GET" })
 	.inputValidator((v: unknown) => v as { cursor?: string })

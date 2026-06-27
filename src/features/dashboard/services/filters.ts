@@ -53,4 +53,3 @@ export function applySummaryFilters(filters?: DashboardFilters): SQL[] {
 
 	return conditions;
 }
-

@@ -2,7 +2,6 @@ import { Suspense, useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { getSessionsList } from "~/server/rpc/dashboard/sessions";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { Clock, MessageSquare, AlertTriangle, Coins, Table2, Grid3x3 } from "lucide-react";
@@ -11,6 +10,8 @@ import { SessionsTableLoading } from "./loading";
 import { DataTable, type Column } from "~/components/ui/data-table";
 import type { DashboardFilters } from "./services/filters";
 import type { ExtendedSession } from "./types";
+import { useCursorPagination } from "~/hooks/use-cursor-pagination";
+import { SessionsRpc } from "~/server/rpc/dashboard/sessions";
 
 type SortKey =
 	| "createdAt"
@@ -127,26 +128,19 @@ function SessionsContent({ filters }: { filters?: DashboardFilters }) {
 	const router = useRouter();
 	const [view, setView] = useState<"grid" | "table">("table");
 	const [searchQuery, setSearchQuery] = useState("");
-	const [cursorStack, setCursorStack] = useState<(string | undefined)[]>([undefined]);
-	const [cursorIndex, setCursorIndex] = useState(0);
 	const [sortBy, setSortBy] = useState<SortKey>("createdAt");
+	const pagination = useCursorPagination();
 
-	const currentCursor = cursorStack[cursorIndex];
 	const sort = SORT_DIRS[sortBy];
 
 	const { data, isFetching } = useQuery({
-		queryKey: ["sessions-list", searchQuery, sort.sortBy, sort.sortDir, currentCursor, filters],
-		queryFn: () =>
-			getSessionsList({
-				data: {
-					search: searchQuery || undefined,
-					sortBy: sort.sortBy,
-					sortDir: sort.sortDir,
-					cursor: currentCursor,
-					filters,
-				},
-			}),
-		staleTime: 60_000,
+		...SessionsRpc.list(
+			searchQuery || undefined,
+			sort.sortBy,
+			sort.sortDir,
+			pagination.cursor,
+			filters,
+		),
 		placeholderData: (prev) => prev,
 	});
 
@@ -157,29 +151,28 @@ function SessionsContent({ filters }: { filters?: DashboardFilters }) {
 
 	const goNext = useCallback(() => {
 		if (!nextCursor) return;
-		const newIndex = cursorIndex + 1;
-		const newStack = cursorStack.slice(0, newIndex);
-		newStack.push(nextCursor);
-		setCursorStack(newStack);
-		setCursorIndex(newIndex);
-	}, [nextCursor, cursorIndex, cursorStack]);
+		pagination.goNext(nextCursor);
+	}, [nextCursor, pagination]);
 
 	const goPrev = useCallback(() => {
-		if (cursorIndex <= 0) return;
-		setCursorIndex(cursorIndex - 1);
-	}, [cursorIndex]);
+		pagination.goPrev();
+	}, [pagination]);
 
-	const handleSort = useCallback((key: string) => {
-		setSortBy(key as SortKey);
-		setCursorStack([undefined]);
-		setCursorIndex(0);
-	}, []);
+	const handleSort = useCallback(
+		(key: string) => {
+			setSortBy(key as SortKey);
+			pagination.reset();
+		},
+		[pagination],
+	);
 
-	const handleSearch = useCallback((query: string) => {
-		setSearchQuery(query);
-		setCursorStack([undefined]);
-		setCursorIndex(0);
-	}, []);
+	const handleSearch = useCallback(
+		(query: string) => {
+			setSearchQuery(query);
+			pagination.reset();
+		},
+		[pagination],
+	);
 
 	return (
 		<div className="flex flex-col gap-4">
