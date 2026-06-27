@@ -4,7 +4,7 @@ import { Database } from "~/db/service";
 import { project, sessionEvent, sessionSummary } from "~/db/schema";
 import { eq, sql } from "drizzle-orm";
 import type { DashboardFilters } from "./filters";
-import { applySummaryFilters, withFilters } from "./filters";
+import { applySummaryFilters } from "./filters";
 
 export class OverviewError extends Data.TaggedError("OverviewError")<{
 	readonly cause: unknown;
@@ -108,29 +108,30 @@ export class OverviewService extends Context.Service<OverviewService, OverviewSe
 				const conditions = applySummaryFilters(filters);
 
 				const rows = yield* Effect.try({
-					try: () =>
-						withFilters(
-							db
-								.select({
-									totalSessions: sql<number>`count(*)`,
-									totalCost: sql<number>`coalesce(sum(${sessionSummary.totalCost}), 0)`,
-									totalTokens: sql<number>`coalesce(sum(${sessionSummary.totalTokens}), 0)`,
-									errorSessions: sql<number>`coalesce(sum(case when ${sessionSummary.toolErrorCount} > 0 then 1 else 0 end), 0)`,
-								})
-								.from(sessionSummary),
-							conditions,
-						).all(),
+					try: () => {
+						const q = db
+							.select({
+								totalSessions: sql<number>`count(*)`,
+								totalCost: sql<number>`coalesce(sum(${sessionSummary.totalCost}), 0)`,
+								totalTokens: sql<number>`coalesce(sum(${sessionSummary.totalTokens}), 0)`,
+								errorSessions: sql<number>`coalesce(sum(case when ${sessionSummary.toolErrorCount} > 0 then 1 else 0 end), 0)`,
+							})
+							.from(sessionSummary)
+							.$dynamic();
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new OverviewError({ cause, message: "Failed to get overview cards" }),
 				});
 
 				const row = rows[0]!;
 
 				const allModels = yield* Effect.try({
-					try: () =>
-						withFilters(
-							db.select({ models: sessionSummary.models }).from(sessionSummary),
-							conditions,
-						).all(),
+					try: () => {
+						const q = db.select({ models: sessionSummary.models }).from(sessionSummary).$dynamic();
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new OverviewError({ cause, message: "Failed to get model data" }),
 				});
 
@@ -158,19 +159,20 @@ export class OverviewService extends Context.Service<OverviewService, OverviewSe
 			const getCostOverTime = Effect.fn("getCostOverTime")(function* (filters?: DashboardFilters) {
 				const conditions = applySummaryFilters(filters);
 				const rows = yield* Effect.try({
-					try: () =>
-						withFilters(
-							db
-								.select({
-									date: sql<string>`date(${sessionSummary.createdAt} / 1000, 'unixepoch')`,
-									cost: sql<number>`coalesce(sum(${sessionSummary.totalCost}), 0)`,
-									sessions: sql<number>`count(*)`,
-								})
-								.from(sessionSummary)
-								.groupBy(sql`date(${sessionSummary.createdAt} / 1000, 'unixepoch')`)
-								.orderBy(sql`date(${sessionSummary.createdAt} / 1000, 'unixepoch')`),
-							conditions,
-						).all(),
+					try: () => {
+						const q = db
+							.select({
+								date: sql<string>`date(${sessionSummary.createdAt} / 1000, 'unixepoch')`,
+								cost: sql<number>`coalesce(sum(${sessionSummary.totalCost}), 0)`,
+								sessions: sql<number>`count(*)`,
+							})
+							.from(sessionSummary)
+							.groupBy(sql`date(${sessionSummary.createdAt} / 1000, 'unixepoch')`)
+							.orderBy(sql`date(${sessionSummary.createdAt} / 1000, 'unixepoch')`)
+							.$dynamic();
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new OverviewError({ cause, message: "Failed to get cost over time" }),
 				});
 
@@ -180,13 +182,14 @@ export class OverviewService extends Context.Service<OverviewService, OverviewSe
 			const getModelUsage = Effect.fn("getModelUsage")(function* (filters?: DashboardFilters) {
 				const conditions = applySummaryFilters(filters);
 				const rows = yield* Effect.try({
-					try: () =>
-						withFilters(
-							db
-								.select({ models: sessionSummary.models, totalCost: sessionSummary.totalCost })
-								.from(sessionSummary),
-							conditions,
-						).all(),
+					try: () => {
+						const q = db
+							.select({ models: sessionSummary.models, totalCost: sessionSummary.totalCost })
+							.from(sessionSummary)
+							.$dynamic();
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new OverviewError({ cause, message: "Failed to get model usage" }),
 				});
 
@@ -214,20 +217,21 @@ export class OverviewService extends Context.Service<OverviewService, OverviewSe
 				const projectNameMap = new Map(projectRows.map((p) => [p.id, p.name ?? "Unknown"]));
 
 				const rows = yield* Effect.try({
-					try: () =>
-						withFilters(
-							db
-								.select({
-									projectId: sessionSummary.projectId,
-									sessionCount: sql<number>`count(*)`,
-									cost: sql<number>`coalesce(sum(${sessionSummary.totalCost}), 0)`,
-								})
-								.from(sessionSummary)
-								.groupBy(sessionSummary.projectId)
-								.orderBy(sql`count(*) desc`)
-								.limit(5),
-							conditions,
-						).all(),
+					try: () => {
+						const q = db
+							.select({
+								projectId: sessionSummary.projectId,
+								sessionCount: sql<number>`count(*)`,
+								cost: sql<number>`coalesce(sum(${sessionSummary.totalCost}), 0)`,
+							})
+							.from(sessionSummary)
+							.groupBy(sessionSummary.projectId)
+							.orderBy(sql`count(*) desc`)
+							.limit(5)
+							.$dynamic();
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new OverviewError({ cause, message: "Failed to get top projects" }),
 				});
 
@@ -243,14 +247,15 @@ export class OverviewService extends Context.Service<OverviewService, OverviewSe
 			) {
 				const thinkingRows = yield* Effect.try({
 					try: () => {
-						let q = db
+						const q = db
 							.select()
 							.from(sessionEvent)
-							.where(eq(sessionEvent.eventType, "thinking_change")) as any;
+							.where(eq(sessionEvent.eventType, "thinking_change"))
+							.$dynamic();
 						if (filters?.dateFrom != null)
-							q = q.where(sql`${sessionEvent.createdAt} >= ${filters.dateFrom}`);
+							q.where(sql`${sessionEvent.createdAt} >= ${filters.dateFrom}`);
 						if (filters?.dateTo != null)
-							q = q.where(sql`${sessionEvent.createdAt} < ${filters.dateTo}`);
+							q.where(sql`${sessionEvent.createdAt} < ${filters.dateTo}`);
 						return q.all();
 					},
 					catch: (cause) =>
@@ -276,11 +281,14 @@ export class OverviewService extends Context.Service<OverviewService, OverviewSe
 			const getStopReasons = Effect.fn("getStopReasons")(function* (filters?: DashboardFilters) {
 				const conditions = applySummaryFilters(filters);
 				const rows = yield* Effect.try({
-					try: () =>
-						withFilters(
-							db.select({ stopReasons: sessionSummary.stopReasons }).from(sessionSummary),
-							conditions,
-						).all(),
+					try: () => {
+						const q = db
+							.select({ stopReasons: sessionSummary.stopReasons })
+							.from(sessionSummary)
+							.$dynamic();
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new OverviewError({ cause, message: "Failed to get stop reasons" }),
 				});
 
@@ -319,33 +327,35 @@ export class OverviewService extends Context.Service<OverviewService, OverviewSe
 					const projectNameMap = new Map(projectRows.map((p) => [p.id, p.name ?? "Unknown"]));
 
 					const rows = yield* Effect.try({
-						try: () =>
-							withFilters(
-								db
-									.select({
-										projectId: sessionSummary.projectId,
-										sessionCount: sql<number>`count(*)`,
-										totalCost: sql<number>`coalesce(sum(${sessionSummary.totalCost}), 0)`,
-										totalMessages: sql<number>`coalesce(sum(${sessionSummary.messageCount}), 0)`,
-										totalDuration: sql<number>`coalesce(sum(${sessionSummary.duration}), 0)`,
-										errorSessions: sql<number>`coalesce(sum(case when ${sessionSummary.toolErrorCount} > 0 then 1 else 0 end), 0)`,
-									})
-									.from(sessionSummary)
-									.groupBy(sessionSummary.projectId),
-								conditions,
-							).all(),
+						try: () => {
+							const q = db
+								.select({
+									projectId: sessionSummary.projectId,
+									sessionCount: sql<number>`count(*)`,
+									totalCost: sql<number>`coalesce(sum(${sessionSummary.totalCost}), 0)`,
+									totalMessages: sql<number>`coalesce(sum(${sessionSummary.messageCount}), 0)`,
+									totalDuration: sql<number>`coalesce(sum(${sessionSummary.duration}), 0)`,
+									errorSessions: sql<number>`coalesce(sum(case when ${sessionSummary.toolErrorCount} > 0 then 1 else 0 end), 0)`,
+								})
+								.from(sessionSummary)
+								.groupBy(sessionSummary.projectId)
+								.$dynamic();
+							for (const c of conditions) q.where(c);
+							return q.all();
+						},
 						catch: (cause) =>
 							new OverviewError({ cause, message: "Failed to get project metrics" }),
 					});
 
 					const modelRows = yield* Effect.try({
-						try: () =>
-							withFilters(
-								db
-									.select({ projectId: sessionSummary.projectId, models: sessionSummary.models })
-									.from(sessionSummary),
-								conditions,
-							).all(),
+						try: () => {
+							const q = db
+								.select({ projectId: sessionSummary.projectId, models: sessionSummary.models })
+								.from(sessionSummary)
+								.$dynamic();
+							for (const c of conditions) q.where(c);
+							return q.all();
+						},
 						catch: (cause) =>
 							new OverviewError({ cause, message: "Failed to get project model data" }),
 					});

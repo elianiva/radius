@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, Suspense } from "react";
+import { Suspense } from "react";
 import { HealthDashboard } from "~/features/dashboard/health";
-import type { DashboardFilters } from "~/features/dashboard/services/filters";
 import { OverviewLoading } from "~/features/dashboard/loading";
+import { useDashboardFilters } from "~/hooks/use-dashboard-filters";
 import {
 	getHealthSummary,
 	getErrorTrend,
@@ -15,33 +15,8 @@ export const Route = createFileRoute("/_dashboard/health")({
 	component: HealthRoute,
 });
 
-function useFiltersFromSearch(): DashboardFilters | undefined {
-	const search = Route.useSearch();
-	return useMemo(() => {
-		const f: DashboardFilters = {};
-		let hasAny = false;
-		if (search.dateFrom != null) {
-			f.dateFrom = search.dateFrom;
-			hasAny = true;
-		}
-		if (search.dateTo != null) {
-			f.dateTo = search.dateTo;
-			hasAny = true;
-		}
-		if (search.projectIds?.length) {
-			f.projectIds = search.projectIds;
-			hasAny = true;
-		}
-		if (search.model) {
-			f.model = search.model;
-			hasAny = true;
-		}
-		return hasAny ? f : undefined;
-	}, [search.dateFrom, search.dateTo, search.projectIds, search.model]);
-}
-
 function HealthRoute() {
-	const filters = useFiltersFromSearch();
+	const filters = useDashboardFilters(Route.useSearch());
 
 	const summary = useQuery({
 		queryKey: ["health-summary", filters],

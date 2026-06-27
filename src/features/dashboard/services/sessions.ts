@@ -5,6 +5,7 @@ import { session, project, sessionSummary } from "~/db/schema";
 import { eq, sql } from "drizzle-orm";
 import type { DashboardFilters } from "./filters";
 import { applySummaryFilters } from "./filters";
+import type { PaginatedSessions } from "~/features/dashboard/types";
 
 export class SessionsError extends Data.TaggedError("SessionsError")<{
 	readonly cause: unknown;
@@ -19,27 +20,6 @@ interface SessionsServiceShape {
 		cursor?: string;
 		filters?: DashboardFilters;
 	}) => Effect.Effect<PaginatedSessions, SessionsError>;
-}
-
-export interface ExtendedSession {
-	id: string;
-	projectName: string;
-	title: string | null;
-	duration: number;
-	totalCost: number;
-	totalTokens: number;
-	models: string[];
-	messageCount: number;
-	toolCallCount: number;
-	toolErrorCount: number;
-	createdAt: number;
-}
-
-export interface PaginatedSessions {
-	items: ExtendedSession[];
-	nextCursor: string | null;
-	totalPages: number;
-	currentPage: number;
 }
 
 const PAGE_SIZE = 15;

@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 import { Overview } from "~/features/dashboard/overview";
-import type { DashboardFilters } from "~/features/dashboard/services/filters";
+import { useDashboardFilters } from "~/hooks/use-dashboard-filters";
 
 import {
 	getOverviewCards,
@@ -17,33 +16,8 @@ export const Route = createFileRoute("/_dashboard/overview")({
 	component: OverviewRoute,
 });
 
-function useFiltersFromSearch(): DashboardFilters | undefined {
-	const search = Route.useSearch();
-	return useMemo(() => {
-		const f: DashboardFilters = {};
-		let hasAny = false;
-		if (search.dateFrom != null) {
-			f.dateFrom = search.dateFrom;
-			hasAny = true;
-		}
-		if (search.dateTo != null) {
-			f.dateTo = search.dateTo;
-			hasAny = true;
-		}
-		if (search.projectIds?.length) {
-			f.projectIds = search.projectIds;
-			hasAny = true;
-		}
-		if (search.model) {
-			f.model = search.model;
-			hasAny = true;
-		}
-		return hasAny ? f : undefined;
-	}, [search.dateFrom, search.dateTo, search.projectIds, search.model]);
-}
-
 function OverviewRoute() {
-	const filters = useFiltersFromSearch();
+	const filters = useDashboardFilters(Route.useSearch());
 
 	const cards = useSuspenseQuery({
 		queryKey: ["overview-cards", filters],

@@ -4,7 +4,8 @@ import { Database, type DatabaseShape } from "~/db/service";
 import { session, project, event, sessionSummary } from "~/db/schema";
 import { eq, inArray, and, sql } from "drizzle-orm";
 import type { DashboardFilters } from "./filters";
-import { applySummaryFilters, withFilters } from "./filters";
+import { applySummaryFilters } from "./filters";
+import type { PaginatedSessions } from "~/features/dashboard/types";
 
 export class HealthError extends Data.TaggedError("HealthError")<{
 	readonly cause: unknown;
@@ -36,27 +37,6 @@ export interface ErrorRateByProjectEntry {
 	project: string;
 	errorRate: number;
 	sessionCount: number;
-}
-
-export interface ExtendedSession {
-	id: string;
-	projectName: string;
-	title: string | null;
-	duration: number;
-	totalCost: number;
-	totalTokens: number;
-	models: string[];
-	messageCount: number;
-	toolCallCount: number;
-	toolErrorCount: number;
-	createdAt: number;
-}
-
-export interface PaginatedSessions {
-	items: ExtendedSession[];
-	nextCursor: string | null;
-	totalPages: number;
-	currentPage: number;
 }
 
 const PAGE_SIZE = 15;
@@ -103,18 +83,19 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 			const getSummary = Effect.fn("getHealthSummary")(function* (filters?: DashboardFilters) {
 				const conditions = applySummaryFilters(filters);
 				const rows = yield* Effect.try({
-					try: () =>
-						withFilters(
-							db
-								.select({
-									totalSessions: sql<number>`count(*)`,
-									totalToolCalls: sql<number>`coalesce(sum(${sessionSummary.toolCallCount}), 0)`,
-									totalToolErrors: sql<number>`coalesce(sum(${sessionSummary.toolErrorCount}), 0)`,
-									errorSessions: sql<number>`coalesce(sum(case when ${sessionSummary.toolErrorCount} > 0 then 1 else 0 end), 0)`,
-								})
-								.from(sessionSummary),
-							conditions,
-						).all(),
+					try: () => {
+						const q = db
+							.select({
+								totalSessions: sql<number>`count(*)`,
+								totalToolCalls: sql<number>`coalesce(sum(${sessionSummary.toolCallCount}), 0)`,
+								totalToolErrors: sql<number>`coalesce(sum(${sessionSummary.toolErrorCount}), 0)`,
+								errorSessions: sql<number>`coalesce(sum(case when ${sessionSummary.toolErrorCount} > 0 then 1 else 0 end), 0)`,
+							})
+							.from(sessionSummary)
+							.$dynamic();
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new HealthError({ cause, message: "Failed to get health summary" }),
 				});
 				const row = rows[0]!;
@@ -129,19 +110,20 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 			const getErrorTrend = Effect.fn("getErrorTrend")(function* (filters?: DashboardFilters) {
 				const conditions = applySummaryFilters(filters);
 				const rows = yield* Effect.try({
-					try: () =>
-						withFilters(
-							db
-								.select({
-									date: sql<string>`date(${sessionSummary.createdAt} / 1000, 'unixepoch')`,
-									totalSessions: sql<number>`count(*)`,
-									errorSessions: sql<number>`coalesce(sum(case when ${sessionSummary.toolErrorCount} > 0 then 1 else 0 end), 0)`,
-								})
-								.from(sessionSummary)
-								.groupBy(sql`date(${sessionSummary.createdAt} / 1000, 'unixepoch')`)
-								.orderBy(sql`date(${sessionSummary.createdAt} / 1000, 'unixepoch')`),
-							conditions,
-						).all(),
+					try: () => {
+						const q = db
+							.select({
+								date: sql<string>`date(${sessionSummary.createdAt} / 1000, 'unixepoch')`,
+								totalSessions: sql<number>`count(*)`,
+								errorSessions: sql<number>`coalesce(sum(case when ${sessionSummary.toolErrorCount} > 0 then 1 else 0 end), 0)`,
+							})
+							.from(sessionSummary)
+							.groupBy(sql`date(${sessionSummary.createdAt} / 1000, 'unixepoch')`)
+							.orderBy(sql`date(${sessionSummary.createdAt} / 1000, 'unixepoch')`)
+							.$dynamic();
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new HealthError({ cause, message: "Failed to get error trend" }),
 				});
 				return rows.map((r) => ({
@@ -155,13 +137,14 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 			const getToolErrors = Effect.fn("getToolErrors")(function* (filters?: DashboardFilters) {
 				const conditions = applySummaryFilters(filters);
 				const summaryRows = yield* Effect.try({
-					try: () =>
-						withFilters(
-							db
-								.select({ id: sessionSummary.id, projectId: sessionSummary.projectId })
-								.from(sessionSummary),
-							conditions,
-						).all(),
+					try: () => {
+						const q = db
+							.select({ id: sessionSummary.id, projectId: sessionSummary.projectId })
+							.from(sessionSummary)
+							.$dynamic();
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) => new HealthError({ cause, message: "Failed to get session IDs" }),
 				});
 				const sessionIds = summaryRows.map((r) => r.id);
@@ -261,18 +244,19 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 				const projectNameMap = new Map(projectRows.map((p) => [p.id, p.name ?? "Unknown"]));
 
 				const rows = yield* Effect.try({
-					try: () =>
-						withFilters(
-							db
-								.select({
-									projectId: sessionSummary.projectId,
-									sessionCount: sql<number>`count(*)`,
-									errorSessions: sql<number>`coalesce(sum(case when ${sessionSummary.toolErrorCount} > 0 then 1 else 0 end), 0)`,
-								})
-								.from(sessionSummary)
-								.groupBy(sessionSummary.projectId),
-							conditions,
-						).all(),
+					try: () => {
+						const q = db
+							.select({
+								projectId: sessionSummary.projectId,
+								sessionCount: sql<number>`count(*)`,
+								errorSessions: sql<number>`coalesce(sum(case when ${sessionSummary.toolErrorCount} > 0 then 1 else 0 end), 0)`,
+							})
+							.from(sessionSummary)
+							.groupBy(sessionSummary.projectId)
+							.$dynamic();
+						for (const c of conditions) q.where(c);
+						return q.all();
+					},
 					catch: (cause) =>
 						new HealthError({ cause, message: "Failed to get error rate by project" }),
 				});
@@ -292,7 +276,7 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 				cursor?: string,
 				cursorCol?: ReturnType<typeof sql>,
 			) {
-				let q = db
+				const q = db
 					.select({
 						id: sessionSummary.id,
 						projectId: sessionSummary.projectId,
@@ -309,11 +293,12 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 					})
 					.from(sessionSummary)
 					.leftJoin(session, eq(sessionSummary.id, session.id))
-					.leftJoin(project, eq(sessionSummary.projectId, project.id));
+					.leftJoin(project, eq(sessionSummary.projectId, project.id))
+					.$dynamic();
 
-				q = withFilters(q, filtersConditions) as any;
+				for (const c of filtersConditions) q.where(c);
 
-				q = q.orderBy(sql`${sortCol} desc`).limit(PAGE_SIZE + 1) as any;
+				q.orderBy(sql`${sortCol} desc`).limit(PAGE_SIZE + 1);
 
 				if (cursor && cursorCol) {
 					const cursorRow = db
@@ -322,19 +307,19 @@ export class HealthService extends Context.Service<HealthService, HealthServiceS
 						.where(eq(sessionSummary.id, cursor))
 						.get();
 					if (cursorRow) {
-						q = (q as any).where(sql`${cursorCol} < ${cursorRow.val}
+						q.where(sql`${cursorCol} < ${cursorRow.val}
               or (${cursorCol} = ${cursorRow.val} and ${sessionSummary.id} < ${cursor})`);
 					}
 				}
 				return q.all();
 			}
 
-			function toPaginated(rows: any[]) {
+			function toPaginated(rows: ReturnType<typeof paginatedQuery>) {
 				const hasMore = rows.length > PAGE_SIZE;
 				const items = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
-				const nextCursor = hasMore ? items[items.length - 1].id : null;
+				const nextCursor = hasMore ? items[items.length - 1]!.id : null;
 				return {
-					items: items.map((r: any) => ({
+					items: items.map((r) => ({
 						id: r.id,
 						projectName: r.projectName ?? r.projectId,
 						title: r.title,

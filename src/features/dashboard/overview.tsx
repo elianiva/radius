@@ -221,8 +221,8 @@ function SummaryCards({ cards }: { cards: OverviewProps["cards"] }) {
 	);
 }
 
-function aggregateWeeks(data: CostOverTime[]) {
-	const weeks = new Map<string, { start: string; cost: number; sessions: number }>();
+function aggregateWeeks(data: CostOverTime[]): CostOverTime[] {
+	const weeks = new Map<string, CostOverTime>();
 
 	for (const d of data) {
 		const date = new Date(d.date + "T00:00:00Z");
@@ -231,13 +231,13 @@ function aggregateWeeks(data: CostOverTime[]) {
 		monday.setUTCDate(date.getUTCDate() - ((dayOfWeek + 6) % 7));
 		const key = monday.toISOString().split("T")[0]!;
 
-		const existing = weeks.get(key) ?? { start: key, cost: 0, sessions: 0 };
+		const existing = weeks.get(key) ?? { date: key, cost: 0, sessions: 0 };
 		existing.cost += d.cost;
 		existing.sessions += d.sessions;
 		weeks.set(key, existing);
 	}
 
-	return Array.from(weeks.values()).sort((a, b) => a.start.localeCompare(b.start));
+	return Array.from(weeks.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function CostOverTimeChart({ data }: { data: CostOverTime[] }) {
@@ -280,7 +280,7 @@ function CostOverTimeChart({ data }: { data: CostOverTime[] }) {
 					<AreaChart data={chartData}>
 						<CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
 						<XAxis
-							dataKey={view === "weekly" ? "start" : "date"}
+							dataKey="date"
 							tickLine={false}
 							axisLine={false}
 							tickFormatter={dateFormatter}

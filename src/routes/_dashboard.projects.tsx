@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
-import { Suspense, useState, useMemo } from "react";
+import { Suspense, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { getDashboardMetrics } from "~/server/rpc/dashboard/overview";
 import { getProjectDetail } from "~/server/rpc/dashboard/projects";
 import { Projects } from "~/features/dashboard/projects";
 import { ProjectDetailView } from "~/features/dashboard/project-detail";
 import { ProjectsLoading } from "~/features/dashboard/loading";
-import type { DashboardFilters } from "~/features/dashboard/services/filters";
+import { useDashboardFilters } from "~/hooks/use-dashboard-filters";
 
 import type { ProjectDetail } from "~/features/dashboard/types";
 
@@ -16,29 +16,7 @@ export const Route = createFileRoute("/_dashboard/projects")({
 });
 
 function ProjectsRoute() {
-	const search = Route.useSearch();
-
-	const filters: DashboardFilters | undefined = useMemo(() => {
-		const f: DashboardFilters = {};
-		let hasAny = false;
-		if (search.dateFrom != null) {
-			f.dateFrom = search.dateFrom;
-			hasAny = true;
-		}
-		if (search.dateTo != null) {
-			f.dateTo = search.dateTo;
-			hasAny = true;
-		}
-		if (search.projectIds?.length) {
-			f.projectIds = search.projectIds;
-			hasAny = true;
-		}
-		if (search.model) {
-			f.model = search.model;
-			hasAny = true;
-		}
-		return hasAny ? f : undefined;
-	}, [search.dateFrom, search.dateTo, search.projectIds, search.model]);
+	const filters = useDashboardFilters(Route.useSearch());
 
 	const { data: metrics } = useSuspenseQuery({
 		queryKey: ["dashboard-metrics", filters],

@@ -29,15 +29,8 @@ import { OverviewLoading } from "~/features/dashboard/loading";
 import { AppNav } from "~/components/app-nav";
 import { FilterBar } from "~/components/filter-bar";
 
-interface DashboardSearch {
-	dateFrom?: number;
-	dateTo?: number;
-	projectIds?: string[];
-	model?: string;
-}
-
-function parseSearch(raw: Record<string, unknown>): DashboardSearch {
-	const result: DashboardSearch = {};
+function parseSearch(raw: Record<string, unknown>): DashboardFilters {
+	const result: DashboardFilters = {};
 	if (typeof raw.dateFrom === "string") {
 		const n = Number(raw.dateFrom);
 		if (!Number.isNaN(n)) result.dateFrom = n;
