@@ -1,4 +1,4 @@
-import { Suspense, useState, useCallback } from "react";
+import { Suspense, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
@@ -149,30 +149,24 @@ function SessionsContent({ filters }: { filters?: DashboardFilters }) {
 	const currentPage = data?.currentPage ?? 1;
 	const nextCursor = data?.nextCursor;
 
-	const goNext = useCallback(() => {
+	const goNext = () => {
 		if (!nextCursor) return;
 		pagination.goNext(nextCursor);
-	}, [nextCursor, pagination]);
+	};
 
-	const goPrev = useCallback(() => {
+	const goPrev = () => {
 		pagination.goPrev();
-	}, [pagination]);
+	};
 
-	const handleSort = useCallback(
-		(key: string) => {
-			setSortBy(key as SortKey);
-			pagination.reset();
-		},
-		[pagination],
-	);
+	const handleSort = (key: string) => {
+		setSortBy(key as SortKey);
+		pagination.reset();
+	};
 
-	const handleSearch = useCallback(
-		(query: string) => {
-			setSearchQuery(query);
-			pagination.reset();
-		},
-		[pagination],
-	);
+	const handleSearch = (query: string) => {
+		setSearchQuery(query);
+		pagination.reset();
+	};
 
 	return (
 		<div className="flex flex-col gap-4">

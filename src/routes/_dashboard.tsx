@@ -1,6 +1,6 @@
 import { Outlet, Link, createFileRoute } from "@tanstack/react-router";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { Suspense, useState, useCallback, useMemo } from "react";
+import { Suspense, useState } from "react";
 import { Button } from "~/components/ui/button";
 import {
 	Dialog,
@@ -121,10 +121,10 @@ function ImportDialog({
 
 	const hasSelection = importPi || importOpencode;
 
-	const handleImport = useCallback(() => {
+	const handleImport = () => {
 		setOpen(false);
 		onImport(importPi, importOpencode);
-	}, [importPi, importOpencode, onImport]);
+	};
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
@@ -184,49 +184,40 @@ function DashboardLayout() {
 
 	const { data: summary } = useQuery(OverviewRpc.overviewCards());
 
-	const filters: DashboardFilters = useMemo(
-		() => ({
-			dateFrom: search.dateFrom,
-			dateTo: search.dateTo,
-			projectIds: search.projectIds,
-			model: search.model,
-		}),
-		[search.dateFrom, search.dateTo, search.projectIds, search.model],
-	);
+	const filters: DashboardFilters = {
+		dateFrom: search.dateFrom,
+		dateTo: search.dateTo,
+		projectIds: search.projectIds,
+		model: search.model,
+	};
 
 	const { data: projectNames } = useQuery(FilterOptionsRpc.projectNames());
 	const { data: modelNames } = useQuery(FilterOptionsRpc.modelNames());
 
-	const handleFiltersChange = useCallback(
-		(next: DashboardFilters) => {
-			void navigate({ search: filtersToParams(next) as Record<string, string>, replace: true });
-		},
-		[navigate],
-	);
+	const handleFiltersChange = (next: DashboardFilters) => {
+		void navigate({ search: filtersToParams(next) as Record<string, string>, replace: true });
+	};
 
-	const handleImport = useCallback(
-		async (doPi: boolean, doOpencode: boolean) => {
-			setIsImporting(true);
-			if (doPi) {
-				const stream = await importPiSessions();
-				for await (const progress of stream) {
-					setIngestProgress(progress);
-				}
+	const handleImport = async (doPi: boolean, doOpencode: boolean) => {
+		setIsImporting(true);
+		if (doPi) {
+			const stream = await importPiSessions();
+			for await (const progress of stream) {
+				setIngestProgress(progress);
 			}
+		}
 
-			if (doOpencode) {
-				const stream = await importOpencodeSessions();
-				for await (const progress of stream) {
-					setIngestProgress(progress);
-				}
+		if (doOpencode) {
+			const stream = await importOpencodeSessions();
+			for await (const progress of stream) {
+				setIngestProgress(progress);
 			}
+		}
 
-			setIngestProgress(null);
-			setIsImporting(false);
-			void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-		},
-		[queryClient],
-	);
+		setIngestProgress(null);
+		setIsImporting(false);
+		void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+	};
 
 	const links = [
 		{ to: "/overview", label: "Overview", icon: BarChart3 },

@@ -28,7 +28,7 @@ import type {
 } from "./types";
 import { HeatmapGrid } from "~/components/ui/heatmap-grid";
 import { buildHeatmapWeeks } from "~/lib/heatmap";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Badge } from "~/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import {
@@ -127,17 +127,15 @@ interface OverviewProps {
 }
 
 function ActivityHeatmap({ data }: { data: DashboardMetrics["costOverTime"] }) {
-	const weeks = useMemo(
-		() =>
-			buildHeatmapWeeks(
-				data.map((d) => ({
-					date: d.date,
-					sessionCount: d.sessions,
-					cost: d.cost,
-				})),
-			),
-		[data],
-	);
+	const weeks = (() =>
+		buildHeatmapWeeks(
+			data.map((d) => ({
+				date: d.date,
+				sessionCount: d.sessions,
+				cost: d.cost,
+			})),
+		)
+	)();
 
 	return (
 		<Card className="lg:col-span-3">
@@ -245,12 +243,12 @@ function aggregateWeeks(data: CostOverTime[]): CostOverTime[] {
 function CostOverTimeChart({ data }: { data: CostOverTime[] }) {
 	const [view, setView] = useState<"daily" | "weekly">("daily");
 
-	const chartData = useMemo(() => {
+	const chartData = (() => {
 		if (view === "weekly") return aggregateWeeks(data);
 		return data;
-	}, [data, view]);
+	})();
 
-	const dateFormatter = useMemo(() => {
+	const dateFormatter = (() => {
 		if (view === "weekly") {
 			return (v: string) => {
 				const d = new Date(v + "T00:00:00Z");
@@ -261,7 +259,7 @@ function CostOverTimeChart({ data }: { data: CostOverTime[] }) {
 			const d = new Date(v);
 			return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 		};
-	}, [view]);
+	})();
 
 	return (
 		<Card className="lg:col-span-2">

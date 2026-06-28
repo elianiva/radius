@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { Calendar } from "~/components/ui/calendar";
 import { Button } from "~/components/ui/button";
@@ -79,81 +79,66 @@ export function FilterBar({ filters, onFiltersChange, projects, models }: Filter
 	const [modelOpen, setModelOpen] = useState(false);
 	const [modelQuery, setModelQuery] = useState("");
 
-	const selectedDateRange = useMemo(() => {
+	const selectedDateRange = (() => {
 		if (!filters.dateFrom && !filters.dateTo) return undefined;
 		return {
 			from: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
 			to: filters.dateTo ? new Date(filters.dateTo) : undefined,
 		};
-	}, [filters.dateFrom, filters.dateTo]);
+	})();
 
 	const hasFilters =
 		filters.dateFrom || filters.dateTo || filters.projectIds?.length || filters.model;
 
-	const displayRange = useMemo(
-		() => formatRange(filters.dateFrom, filters.dateTo),
-		[filters.dateFrom, filters.dateTo],
-	);
+	const displayRange = formatRange(filters.dateFrom, filters.dateTo);
 
-	const handlePreset = useCallback(
-		(preset: PresetLabel) => {
-			const presetFn = PRESETS.find((p) => p.label === preset);
-			if (!presetFn) return;
-			const range = presetFn.getRange();
+	const handlePreset = (preset: PresetLabel) => {
+		const presetFn = PRESETS.find((p) => p.label === preset);
+		if (!presetFn) return;
+		const range = presetFn.getRange();
+		onFiltersChange({
+			...filters,
+			dateFrom: range.from?.getTime(),
+			dateTo: range.to?.getTime(),
+		});
+		setDateOpen(false);
+	};
+
+	const handleDateSelect = (range: { from?: Date; to?: Date } | undefined) => {
+		if (!range) return;
+		if (range.from && range.to) {
 			onFiltersChange({
 				...filters,
-				dateFrom: range.from?.getTime(),
-				dateTo: range.to?.getTime(),
+				dateFrom: startOfDay(range.from).getTime(),
+				dateTo: endOfDay(range.to).getTime(),
 			});
 			setDateOpen(false);
-		},
-		[filters, onFiltersChange],
-	);
+		}
+	};
 
-	const handleDateSelect = useCallback(
-		(range: { from?: Date; to?: Date } | undefined) => {
-			if (!range) return;
-			if (range.from && range.to) {
-				onFiltersChange({
-					...filters,
-					dateFrom: startOfDay(range.from).getTime(),
-					dateTo: endOfDay(range.to).getTime(),
-				});
-				setDateOpen(false);
-			}
-		},
-		[filters, onFiltersChange],
-	);
+	const handleProjectToggle = (projectId: string) => {
+		const current = filters.projectIds ?? [];
+		const next = current.includes(projectId)
+			? current.filter((id) => id !== projectId)
+			: [...current, projectId];
+		onFiltersChange({ ...filters, projectIds: next.length > 0 ? next : undefined });
+	};
 
-	const handleProjectToggle = useCallback(
-		(projectId: string) => {
-			const current = filters.projectIds ?? [];
-			const next = current.includes(projectId)
-				? current.filter((id) => id !== projectId)
-				: [...current, projectId];
-			onFiltersChange({ ...filters, projectIds: next.length > 0 ? next : undefined });
-		},
-		[filters, onFiltersChange],
-	);
+	const handleModelSelect = (model: string) => {
+		setModelOpen(false);
+		setModelQuery("");
+		onFiltersChange({ ...filters, model });
+	};
 
-	const handleModelSelect = useCallback(
-		(model: string) => {
-			setModelOpen(false);
-			setModelQuery("");
-			onFiltersChange({ ...filters, model });
-		},
-		[filters, onFiltersChange],
-	);
-
-	const handleClear = useCallback(() => {
+	const handleClear = () => {
 		onFiltersChange({});
-	}, [onFiltersChange]);
+	};
 
-	const filteredModels = useMemo(() => {
+	const filteredModels = (() => {
 		if (!modelQuery.trim()) return models;
 		const q = modelQuery.toLowerCase();
 		return models.filter((m) => m.toLowerCase().includes(q));
-	}, [models, modelQuery]);
+	})();
 
 	return (
 		<div className="flex items-center gap-2">

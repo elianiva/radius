@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "~/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, Cell, XAxis, YAxis } from "recharts";
@@ -34,14 +34,14 @@ function SessionTable({ sessions }: { sessions: ProjectDetail["sessions"] }) {
 	const [sortKey, setSortKey] = useState<SortKey>("createdAt");
 	const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-	const sorted = useMemo(() => {
+	const sorted = (() => {
 		const copy = [...sessions];
 		copy.sort((a, b) => {
 			const cmp = a[sortKey] > b[sortKey] ? 1 : a[sortKey] < b[sortKey] ? -1 : 0;
 			return sortDir === "asc" ? cmp : -cmp;
 		});
 		return copy;
-	}, [sessions, sortKey, sortDir]);
+	})();
 
 	const toggle = (key: SortKey) => {
 		if (sortKey === key) {

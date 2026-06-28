@@ -1,5 +1,5 @@
 import { useQueryErrorResetBoundary } from "@tanstack/react-query";
-import { Component, useCallback, useEffect, useRef } from "react";
+import { Component, useEffect, useRef } from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 
@@ -80,9 +80,9 @@ export function QueryErrorBoundary({
 		resetKeysRef.current = resetKeys;
 	}, [resetKeys]);
 
-	const handleResetQuery = useCallback(() => {
+	const handleResetQuery = () => {
 		resetQuery();
-	}, [resetQuery]);
+	};
 
 	return (
 		<ErrorBoundaryClass

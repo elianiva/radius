@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import type { WrappedData } from "./services/wrapped";
 import { TitleSlide } from "./slides/title";
@@ -25,18 +25,15 @@ function useActiveSlide(slideCount: number) {
 	const [activeIndex, setActiveIndex] = useState(0);
 	const containerRef = useRef<HTMLDivElement>(null);
 
-	const scrollTo = useCallback(
-		(index: number) => {
-			const container = containerRef.current;
-			if (!container) return;
-			const target = Math.max(0, Math.min(index, slideCount - 1));
-			container.children[target]?.scrollIntoView({ behavior: "smooth" });
-			setActiveIndex(target);
-		},
-		[slideCount],
-	);
+	const scrollTo = (index: number) => {
+		const container = containerRef.current;
+		if (!container) return;
+		const target = Math.max(0, Math.min(index, slideCount - 1));
+		container.children[target]?.scrollIntoView({ behavior: "smooth" });
+		setActiveIndex(target);
+	};
 
-	const handleScroll = useCallback(() => {
+	const handleScroll = () => {
 		const container = containerRef.current;
 		if (!container) return;
 		const scrollTop = container.scrollTop;
@@ -52,7 +49,7 @@ function useActiveSlide(slideCount: number) {
 			}
 		}
 		setActiveIndex(heights.length - 1);
-	}, []);
+	};
 
 	return { activeIndex, containerRef, scrollTo, handleScroll, setActiveIndex };
 }

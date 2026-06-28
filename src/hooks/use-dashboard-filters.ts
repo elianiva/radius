@@ -1,8 +1,7 @@
-import { useMemo } from "react";
 import type { DashboardFilters } from "~/features/dashboard/services/filters";
 
 export function useDashboardFilters(search: Record<string, unknown>): DashboardFilters | undefined {
-	return useMemo(() => {
+	return (() => {
 		const f: DashboardFilters = {};
 		let hasAny = false;
 		if (search.dateFrom != null) {
@@ -22,5 +21,5 @@ export function useDashboardFilters(search: Record<string, unknown>): DashboardF
 			hasAny = true;
 		}
 		return hasAny ? f : undefined;
-	}, [search.dateFrom, search.dateTo, search.projectIds, search.model]);
+	})();
 }
