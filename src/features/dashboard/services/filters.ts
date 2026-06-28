@@ -1,32 +1,38 @@
+import { Schema } from "effect";
 import { sql, type SQL } from "drizzle-orm";
 import { sessionSummary } from "~/db/schema";
 
-export interface DashboardFilters {
-	dateFrom?: number;
-	dateTo?: number;
-	projectIds?: string[];
-	model?: string;
-}
+export const DashboardFiltersSchema = Schema.Struct({
+	dateFrom: Schema.optional(Schema.Number),
+	dateTo: Schema.optional(Schema.Number),
+	projectIds: Schema.optional(Schema.Array(Schema.String)),
+	model: Schema.optional(Schema.String),
+});
 
-export function parseFilters(raw: unknown): DashboardFilters | undefined {
-	if (!raw || typeof raw !== "object") return undefined;
-	const obj = raw as Record<string, unknown>;
-	const result: DashboardFilters = {};
-	if (typeof obj.dateFrom === "number") result.dateFrom = obj.dateFrom;
-	if (typeof obj.dateTo === "number") result.dateTo = obj.dateTo;
-	if (Array.isArray(obj.projectIds) && obj.projectIds.length > 0) {
-		result.projectIds = obj.projectIds as string[];
-	}
-	if (typeof obj.model === "string" && obj.model.length > 0) {
-		result.model = obj.model;
-	}
-	return Object.keys(result).length > 0 ? result : undefined;
-}
+export type DashboardFilters = typeof DashboardFiltersSchema.Type;
 
+const decodeFilters = Schema.decodeUnknownSync(DashboardFiltersSchema);
+
+/** Unwrap RPC envelope { data: { filters } } and validate the inner shape. */
 export function extractFilters(v: unknown): { filters: DashboardFilters | undefined } {
 	if (!v || typeof v !== "object") return { filters: undefined };
 	const raw = (v as Record<string, unknown>).data;
-	return { filters: parseFilters(raw) };
+	const result = decodeFilters(raw);
+	return { filters: Object.keys(result).length > 0 ? result : undefined };
+}
+
+/** Unwrap a { data: { filters, ...rest } } envelope with cursor support. */
+export function extractFiltersWithCursor(v: unknown): {
+	filters: DashboardFilters | undefined;
+	cursor: string | undefined;
+} {
+	if (!v || typeof v !== "object") return { cursor: undefined, filters: undefined };
+	const raw = (v as Record<string, unknown>).data as Record<string, unknown> | undefined;
+	const filters = decodeFilters(raw?.filters);
+	return {
+		cursor: raw?.cursor as string | undefined,
+		filters: Object.keys(filters).length > 0 ? filters : undefined,
+	};
 }
 
 export function applySummaryFilters(filters?: DashboardFilters): SQL[] {

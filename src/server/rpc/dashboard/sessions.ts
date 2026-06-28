@@ -4,12 +4,13 @@ import { getRequest } from "@tanstack/react-start/server";
 
 import { AppRuntime } from "../../app-runtime";
 import { SessionsService } from "~/features/dashboard/services/sessions";
-import { parseFilters } from "~/features/dashboard/services/filters";
+import { extractFiltersWithCursor } from "~/features/dashboard/services/filters";
 import type { DashboardFilters } from "~/features/dashboard/services/filters";
 import { getSessionEvents } from "../../rpc/sessions";
 
 export const getSessionsList = createServerFn({ method: "GET" })
 	.inputValidator((v: unknown) => {
+		const { filters, cursor } = extractFiltersWithCursor(v);
 		if (!v || typeof v !== "object")
 			return {
 				search: undefined,
@@ -23,8 +24,8 @@ export const getSessionsList = createServerFn({ method: "GET" })
 			search: raw?.search as string | undefined,
 			sortBy: raw?.sortBy as string | undefined,
 			sortDir: raw?.sortDir as "asc" | "desc" | undefined,
-			cursor: raw?.cursor as string | undefined,
-			filters: parseFilters(raw?.filters),
+			cursor,
+			filters,
 		};
 	})
 	.handler(({ data }) =>

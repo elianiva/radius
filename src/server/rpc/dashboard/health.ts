@@ -4,7 +4,7 @@ import { getRequest } from "@tanstack/react-start/server";
 
 import { AppRuntime } from "../../app-runtime";
 import { HealthService } from "~/features/dashboard/services/health";
-import { extractFilters, parseFilters } from "~/features/dashboard/services/filters";
+import { extractFilters, extractFiltersWithCursor } from "~/features/dashboard/services/filters";
 import type { DashboardFilters } from "~/features/dashboard/services/filters";
 
 export const getHealthSummary = createServerFn({ method: "GET" })
@@ -44,11 +44,7 @@ export const getErrorRateByProject = createServerFn({ method: "GET" })
 	);
 
 export const getExpensiveSessions = createServerFn({ method: "GET" })
-	.inputValidator((v: unknown) => {
-		if (!v || typeof v !== "object") return { cursor: undefined, filters: undefined };
-		const raw = (v as Record<string, unknown>).data as Record<string, unknown> | undefined;
-		return { cursor: raw?.cursor as string | undefined, filters: parseFilters(raw?.filters) };
-	})
+	.inputValidator(extractFiltersWithCursor)
 	.handler(({ data }) =>
 		AppRuntime.runPromise(
 			HealthService.use((svc) => svc.getExpensiveSessions(data.filters, data.cursor)),
@@ -57,11 +53,7 @@ export const getExpensiveSessions = createServerFn({ method: "GET" })
 	);
 
 export const getHighTokenSessions = createServerFn({ method: "GET" })
-	.inputValidator((v: unknown) => {
-		if (!v || typeof v !== "object") return { cursor: undefined, filters: undefined };
-		const raw = (v as Record<string, unknown>).data as Record<string, unknown> | undefined;
-		return { cursor: raw?.cursor as string | undefined, filters: parseFilters(raw?.filters) };
-	})
+	.inputValidator(extractFiltersWithCursor)
 	.handler(({ data }) =>
 		AppRuntime.runPromise(
 			HealthService.use((svc) => svc.getHighTokenSessions(data.filters, data.cursor)),
@@ -70,11 +62,7 @@ export const getHighTokenSessions = createServerFn({ method: "GET" })
 	);
 
 export const getErrorProneSessions = createServerFn({ method: "GET" })
-	.inputValidator((v: unknown) => {
-		if (!v || typeof v !== "object") return { cursor: undefined, filters: undefined };
-		const raw = (v as Record<string, unknown>).data as Record<string, unknown> | undefined;
-		return { cursor: raw?.cursor as string | undefined, filters: parseFilters(raw?.filters) };
-	})
+	.inputValidator(extractFiltersWithCursor)
 	.handler(({ data }) =>
 		AppRuntime.runPromise(
 			HealthService.use((svc) => svc.getErrorProneSessions(data.filters, data.cursor)),

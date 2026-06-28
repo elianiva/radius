@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
 import { HealthDashboard } from "~/features/dashboard/health";
 import { OverviewLoading } from "~/features/dashboard/loading";
-import { useDashboardFilters } from "~/hooks/use-dashboard-filters";
 import { HealthRpc } from "~/server/rpc/dashboard/health";
 
 export const Route = createFileRoute("/_dashboard/health")({
@@ -11,7 +10,7 @@ export const Route = createFileRoute("/_dashboard/health")({
 });
 
 function HealthRoute() {
-	const filters = useDashboardFilters(Route.useSearch());
+	const filters = Route.useSearch();
 
 	const summary = useQuery(HealthRpc.summary(filters));
 	const errorTrend = useQuery(HealthRpc.errorTrend(filters));

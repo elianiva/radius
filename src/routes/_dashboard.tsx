@@ -1,4 +1,5 @@
-import { Outlet, Link, createFileRoute } from "@tanstack/react-router";
+import { Outlet, Link, createFileRoute, useRouter, useRouterState } from "@tanstack/react-router";
+import { Schema } from "effect";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { Button } from "~/components/ui/button";
@@ -22,40 +23,23 @@ import {
 } from "lucide-react";
 import { importPiSessions, importOpencodeSessions } from "~/server/rpc/sessions";
 import { OverviewRpc } from "~/server/rpc/dashboard/overview";
-import { FilterOptionsRpc } from "~/server/rpc/dashboard/filters";
 import type { IngestProgress } from "~/features/sessions/progress";
-import type { DashboardFilters } from "~/features/dashboard/services/filters";
+import {
+	type DashboardFilters,
+	DashboardFiltersSchema,
+} from "~/features/dashboard/services/filters";
 import { OverviewLoading } from "~/features/dashboard/loading";
 import { AppNav } from "~/components/app-nav";
 import { FilterBar } from "~/components/filter-bar";
 import { QueryErrorBoundary } from "~/components/query-error-boundary";
 
 function parseSearch(raw: Record<string, unknown>): DashboardFilters {
-	const result: DashboardFilters = {};
-	if (typeof raw.dateFrom === "string") {
-		const n = Number(raw.dateFrom);
-		if (!Number.isNaN(n)) result.dateFrom = n;
-	}
-	if (typeof raw.dateTo === "string") {
-		const n = Number(raw.dateTo);
-		if (!Number.isNaN(n)) result.dateTo = n;
-	}
-	if (typeof raw.projectIds === "string" && raw.projectIds.length > 0) {
-		result.projectIds = raw.projectIds.split(",");
-	}
-	if (typeof raw.model === "string" && raw.model.length > 0) {
-		result.model = raw.model;
-	}
-	return result;
-}
-
-function filtersToParams(filters: DashboardFilters): Record<string, string | undefined> {
-	return {
-		dateFrom: filters.dateFrom != null ? String(filters.dateFrom) : undefined,
-		dateTo: filters.dateTo != null ? String(filters.dateTo) : undefined,
-		projectIds: filters.projectIds?.length ? filters.projectIds.join(",") : undefined,
-		model: filters.model || undefined,
-	};
+	return Schema.decodeUnknownSync(DashboardFiltersSchema)({
+		dateFrom: raw.dateFrom,
+		dateTo: raw.dateTo,
+		projectIds: raw.projectIds,
+		model: raw.model,
+	});
 }
 
 export const Route = createFileRoute("/_dashboard")({
@@ -178,25 +162,19 @@ function ImportDialog({
 function DashboardLayout() {
 	const queryClient = useQueryClient();
 	const search = Route.useSearch();
-	const navigate = Route.useNavigate();
+	const router = useRouter();
+	const routerState = useRouterState();
 	const [ingestProgress, setIngestProgress] = useState<IngestProgress | null>(null);
 	const [isImporting, setIsImporting] = useState(false);
 
 	const { data: summary } = useQuery(OverviewRpc.overviewCards());
 
-	const filters: DashboardFilters = {
-		dateFrom: search.dateFrom,
-		dateTo: search.dateTo,
-		projectIds: search.projectIds,
-		model: search.model,
-	};
-
-	const { data: projectNames } = useQuery(FilterOptionsRpc.projectNames());
-	const { data: modelNames } = useQuery(FilterOptionsRpc.modelNames());
-
-	const handleFiltersChange = (next: DashboardFilters) => {
-		void navigate({ search: filtersToParams(next) as Record<string, string>, replace: true });
-	};
+	const handleFiltersChange = (next: DashboardFilters) =>
+		router.navigate({
+			to: routerState.location.pathname,
+			search: next,
+			replace: true,
+		});
 
 	const handleImport = async (doPi: boolean, doOpencode: boolean) => {
 		setIsImporting(true);
@@ -249,12 +227,7 @@ function DashboardLayout() {
 				</div>
 			) : (
 				<>
-					<FilterBar
-						filters={filters}
-						onFiltersChange={handleFiltersChange}
-						projects={projectNames ?? []}
-						models={modelNames ?? []}
-					/>
+					<FilterBar filters={search} onFiltersChange={handleFiltersChange} />
 					<AppNav items={links} />
 					<QueryErrorBoundary>
 						<Suspense fallback={<OverviewLoading />}>

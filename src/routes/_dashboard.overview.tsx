@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Overview } from "~/features/dashboard/overview";
-import { useDashboardFilters } from "~/hooks/use-dashboard-filters";
 import { OverviewRpc } from "~/server/rpc/dashboard/overview";
 
 export const Route = createFileRoute("/_dashboard/overview")({
@@ -9,7 +8,7 @@ export const Route = createFileRoute("/_dashboard/overview")({
 });
 
 function OverviewRoute() {
-	const filters = useDashboardFilters(Route.useSearch());
+	const filters = Route.useSearch();
 
 	const cards = useQuery(OverviewRpc.overviewCards(filters));
 	const costOverTime = useQuery(OverviewRpc.costOverTime(filters));

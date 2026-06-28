@@ -134,8 +134,7 @@ function ActivityHeatmap({ data }: { data: DashboardMetrics["costOverTime"] }) {
 				sessionCount: d.sessions,
 				cost: d.cost,
 			})),
-		)
-	)();
+		))();
 
 	return (
 		<Card className="lg:col-span-3">
@@ -502,12 +501,12 @@ export function Overview({
 			<SummaryCards cards={cards} />
 
 			<div className="grid gap-4 lg:grid-cols-3">
-				{isLoading.costOverTime ? (
+				{isLoading.costOverTime || !costOverTime ? (
 					<ChartCardSkeleton rows={5} className="lg:col-span-2" />
 				) : (
-					<CostOverTimeChart data={costOverTime!} />
+					<CostOverTimeChart data={costOverTime} />
 				)}
-				{isLoading.modelUsage ? (
+				{isLoading.modelUsage || !modelUsage ? (
 					<Card>
 						<CardHeader>
 							<CardDescription className="h-3 w-24 animate-pulse rounded bg-muted" />
@@ -517,11 +516,11 @@ export function Overview({
 						</CardContent>
 					</Card>
 				) : (
-					<ModelUsageChart data={modelUsage!} />
+					<ModelUsageChart data={modelUsage} />
 				)}
 			</div>
 
-			{isLoading.topProjects ? (
+			{isLoading.topProjects || !topProjects ? (
 				<Card>
 					<CardHeader>
 						<CardDescription className="h-3 w-24 animate-pulse rounded bg-muted" />
@@ -531,16 +530,16 @@ export function Overview({
 					</CardContent>
 				</Card>
 			) : (
-				<TopProjectsChart data={topProjects!} />
+				<TopProjectsChart data={topProjects} />
 			)}
 
 			<div className="grid gap-4 lg:grid-cols-2">
-				{isLoading.thinkingLevels ? (
+				{isLoading.thinkingLevels || !thinkingLevels ? (
 					<ChartCardSkeleton rows={3} />
 				) : (
-					<ThinkingLevelChart data={thinkingLevels!} />
+					<ThinkingLevelChart data={thinkingLevels} />
 				)}
-				{isLoading.stopReasons ? (
+				{isLoading.stopReasons || !stopReasons ? (
 					<Card>
 						<CardHeader>
 							<CardDescription className="h-3 w-28 animate-pulse rounded bg-muted" />
@@ -560,11 +559,11 @@ export function Overview({
 						</CardContent>
 					</Card>
 				) : (
-					<StopReasonsChart data={stopReasons!} />
+					<StopReasonsChart data={stopReasons} />
 				)}
 			</div>
 
-			{isLoading.costOverTime ? (
+			{isLoading.costOverTime || !costOverTime ? (
 				<Card>
 					<CardHeader>
 						<CardDescription className="h-3 w-16 animate-pulse rounded bg-muted" />
@@ -574,7 +573,7 @@ export function Overview({
 					</CardContent>
 				</Card>
 			) : (
-				<ActivityHeatmap data={costOverTime!} />
+				<ActivityHeatmap data={costOverTime} />
 			)}
 		</div>
 	);

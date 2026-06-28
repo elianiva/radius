@@ -2,14 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Suspense } from "react";
 import { Sessions } from "~/features/dashboard/sessions";
 import { SessionsTableLoading } from "~/features/dashboard/loading";
-import { useDashboardFilters } from "~/hooks/use-dashboard-filters";
-
 export const Route = createFileRoute("/_dashboard/sessions")({
 	component: SessionsRoute,
 });
 
 function SessionsRoute() {
-	const filters = useDashboardFilters(Route.useSearch());
+	const filters = Route.useSearch();
 
 	return (
 		<Suspense fallback={<SessionsTableLoading rows={10} />}>

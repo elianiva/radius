@@ -7,8 +7,6 @@ import { ProjectsRpc } from "~/server/rpc/dashboard/projects";
 import { Projects } from "~/features/dashboard/projects";
 import { ProjectDetailView } from "~/features/dashboard/project-detail";
 import { ProjectsLoading } from "~/features/dashboard/loading";
-import { useDashboardFilters } from "~/hooks/use-dashboard-filters";
-
 import type { ProjectDetail } from "~/features/dashboard/types";
 
 export const Route = createFileRoute("/_dashboard/projects")({
@@ -16,7 +14,7 @@ export const Route = createFileRoute("/_dashboard/projects")({
 });
 
 function ProjectsRoute() {
-	const filters = useDashboardFilters(Route.useSearch());
+	const filters = Route.useSearch();
 
 	const { data: metrics } = useQuery(OverviewRpc.dashboardMetrics(filters));
 
