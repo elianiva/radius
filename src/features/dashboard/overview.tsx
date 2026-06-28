@@ -97,7 +97,7 @@ function CustomLegend({ data }: { data: { model: string; fill: string }[] }) {
 }
 
 interface OverviewProps {
-	cards: {
+	cards?: {
 		totalSessions: number;
 		totalCost: number;
 		avgCostPerSession: number;
@@ -156,6 +156,8 @@ function ActivityHeatmap({ data }: { data: DashboardMetrics["costOverTime"] }) {
 }
 
 function SummaryCards({ cards }: { cards: OverviewProps["cards"] }) {
+	if (!cards) return null;
+
 	const items = [
 		{
 			description: "Total Sessions",
