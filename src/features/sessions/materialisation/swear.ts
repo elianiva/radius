@@ -3,8 +3,8 @@ import { eq } from "drizzle-orm";
 
 import { Database } from "~/db/service";
 import * as schema from "~/db/schema";
-import { SWEAR_WORDS } from "~/features/dashboard/services/swear-types";
 import type { Entry } from "../ingest/adapter";
+import { findSwearMatches } from "./swear-matcher";
 
 export class SwearMatError extends Data.TaggedError("SwearMatError")<{
 	readonly cause: unknown;
@@ -74,21 +74,16 @@ export class SwearMatsService extends Context.Service<
 					if (!msg || msg.role !== "user") continue;
 
 					const content = extractText(msg.content ?? msg.text);
-					const lower = content.toLowerCase();
 
-					for (const word of SWEAR_WORDS) {
-						const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-						const matches = lower.matchAll(new RegExp(`\\b${escaped}\\b`, "gi"));
-						for (const match of matches) {
-							result.push({
-								sessionId,
-								projectName,
-								sessionTitle,
-								word,
-								context: extractContext(content, match.index, word.length),
-								createdAt,
-							});
-						}
+					for (const match of findSwearMatches(content)) {
+						result.push({
+							sessionId,
+							projectName,
+							sessionTitle,
+							word: match.word,
+							context: extractContext(content, match.index, match.length),
+							createdAt,
+						});
 					}
 				}
 
