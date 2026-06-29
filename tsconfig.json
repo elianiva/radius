@@ -7,8 +7,9 @@
 		"paths": {
 			"~/*": ["./src/*"]
 		},
-		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"lib": ["ES2022", "ES2022.Intl", "DOM", "DOM.Iterable"],
 		"types": ["vite-plus/client"],
+		"resolveJsonModule": true,
 
 		/* Bundler mode */
 		"moduleResolution": "bundler",

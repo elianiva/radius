@@ -1,49 +1,13 @@
-export const SWEAR_WORDS = [
-	"fuck",
-	"fucking",
-	"fucked",
-	"fucker",
-	"shit",
-	"shitty",
-	"ass",
-	"asshole",
-	"bitch",
-	"bastard",
-	"damn",
-	"dammit",
-	"piss",
-	"pissed",
-	"crap",
-	"crappy",
-	"dick",
-	"cock",
-	"cunt",
-	"whore",
-	"slut",
-	"bullshit",
-	"goddamn",
-	"goddammit",
-	"motherfucker",
-	"motherfucking",
-	"son of a bitch",
-	"wtf",
-	"wth",
-	"hell",
-	"jackass",
-	"douche",
-	"douchebag",
-	"twat",
-	"wanker",
-	"prick",
-	"screw",
-	"screwed",
-	"screwing",
-	"freaking",
-	"darn",
-	"heck",
-] as const;
+import englishWords from "./swear-data/en.json";
+import indonesianWords from "./swear-data/id.json";
+import phrases from "./swear-data/phrases.json";
 
-export type SwearWord = (typeof SWEAR_WORDS)[number];
+export const SWEAR_SINGLE_WORDS = [...englishWords, ...indonesianWords];
+export const SWEAR_PHRASES = phrases;
+export const SWEAR_WORDS = [...SWEAR_SINGLE_WORDS, ...SWEAR_PHRASES];
+export const SWEAR_WORD_SET = new Set<string>(SWEAR_SINGLE_WORDS);
+
+export type SwearWord = string;
 
 export interface SwearMention {
 	word: SwearWord;
